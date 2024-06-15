@@ -3,7 +3,7 @@ name: PR Checks
 on:
   push:
     branches:
-      - main
+      - dev-consig
   pull_request:
     branches:
       - "**"
