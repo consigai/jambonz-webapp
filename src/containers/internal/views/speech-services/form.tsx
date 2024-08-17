@@ -46,6 +46,7 @@ import {
   AWS_CREDENTIAL_IAM_ASSUME_ROLE,
   AWS_CREDENTIAL_ACCESS_KEY,
   AWS_INSTANCE_PROFILE,
+  VENDOR_VERBIO,
 } from "src/vendor";
 import { MSG_REQUIRED_FIELDS } from "src/constants";
 import {
@@ -77,8 +78,10 @@ import {
   DEFAULT_GOOGLE_CUSTOM_VOICES_REPORTED_USAGE,
   DEFAULT_PLAYHT_OPTIONS,
   DEFAULT_RIMELABS_OPTIONS,
+  DEFAULT_VERBIO_MODEL,
   DISABLE_CUSTOM_SPEECH,
   GOOGLE_CUSTOM_VOICES_REPORTED_USAGE,
+  VERBIO_STT_MODELS,
 } from "src/api/constants";
 
 type SpeechServiceFormProps = {
@@ -106,6 +109,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
   const [secretAccessKey, setSecretAccessKey] = useState("");
   const [clientId, setClientId] = useState("");
   const [secretKey, setSecretKey] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
   const [googleServiceKey, setGoogleServiceKey] =
     useState<GoogleServiceKey | null>(null);
   const [sttRegion, setSttRegion] = useState("");
@@ -113,6 +117,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
   const [ttsRegion, setTtsRegion] = useState("");
   const [ttsApiKey, setTtsApiKey] = useState("");
   const [ttsModelId, setTtsModelId] = useState("");
+  const [engineVersion, setEngineVersion] = useState(DEFAULT_VERBIO_MODEL);
   const [instanceId, setInstanceId] = useState("");
   const [initialCheckCustomTts, setInitialCheckCustomTts] = useState(false);
   const [initialCheckCustomStt, setInitialCheckCustomStt] = useState(false);
@@ -155,12 +160,13 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
   const [options, setOptions] = useState("");
   const [tmpOptions, setTmpOptions] = useState("");
   const [deepgramSttUri, setDeepgramSttUri] = useState("");
+  const [deepgramTtsUri, setDeepgramTtsUri] = useState("");
   const [tmpDeepgramSttUri, setTmpDeepgramSttUri] = useState("");
+  const [tmpDeepgramTtsUri, setTmpDeepgramTtsUri] = useState("");
   const [deepgramSttUseTls, setDeepgramSttUseTls] = useState(false);
   const [tmpDeepgramSttUseTls, setTmpDeepgramSttUseTls] = useState(false);
   const [initialDeepgramOnpremCheck, setInitialDeepgramOnpremCheck] =
     useState(false);
-  const [isDeepgramOnpremEnabled, setIsDeepgramOnpremEnabled] = useState(false);
   const [awsCredentialType, setAwsCredentialType] = useState(
     AWS_CREDENTIAL_ACCESS_KEY,
   );
@@ -351,7 +357,11 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
           }),
         ...(vendor === VENDOR_DEEPGRAM && {
           deepgram_stt_uri: deepgramSttUri || null,
+          deepgram_tts_uri: deepgramTtsUri || null,
           deepgram_stt_use_tls: deepgramSttUseTls ? 1 : 0,
+        }),
+        ...(vendor === VENDOR_VERBIO && {
+          engine_version: engineVersion,
         }),
       };
 
@@ -405,6 +415,10 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
             userId && {
               user_id: userId,
             }),
+          ...(vendor === VENDOR_VERBIO && {
+            client_id: clientId,
+            client_secret: clientSecret,
+          }),
           riva_server_uri: vendor == VENDOR_NVIDIA ? rivaServerUri : null,
         })
           .then(({ json }) => {
@@ -620,13 +634,15 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
     if (credential?.data?.deepgram_stt_uri) {
       setDeepgramSttUri(credential.data.deepgram_stt_uri);
     }
+    if (credential?.data?.deepgram_tts_uri) {
+      setDeepgramTtsUri(credential.data.deepgram_tts_uri);
+    }
     if (credential?.data?.deepgram_stt_use_tls) {
       setDeepgramSttUseTls(
         credential?.data?.deepgram_stt_use_tls > 0 ? true : false,
       );
     }
     setInitialDeepgramOnpremCheck(hasValue(credential?.data?.deepgram_stt_uri));
-    setIsDeepgramOnpremEnabled(hasValue(credential?.data?.deepgram_stt_uri));
 
     if (credential?.data?.user_id) {
       setUserId(credential.data.user_id);
@@ -646,6 +662,15 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
             ? AWS_CREDENTIAL_IAM_ASSUME_ROLE
             : AWS_INSTANCE_PROFILE,
       );
+    }
+    if (credential?.data?.client_id) {
+      setClientId(credential.data.client_id);
+    }
+    if (credential?.data?.client_secret) {
+      setClientSecret(credential.data.client_secret);
+    }
+    if (credential?.data?.engine_version) {
+      setEngineVersion(credential.data.engine_version);
     }
   }, [credential]);
 
@@ -1183,6 +1208,58 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
             </fieldset>
           </>
         )}
+        {vendor === VENDOR_VERBIO && (
+          <>
+            <fieldset>
+              <label htmlFor="verbio_client_id">
+                Client ID
+                {!onPremNuanceSttCheck && !onPremNuanceTtsCheck && (
+                  <span>*</span>
+                )}
+              </label>
+              <input
+                id="verbio_client_id"
+                required
+                type="text"
+                name="verbio_client_id"
+                placeholder="Client ID"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                disabled={credential ? true : false}
+              />
+              <label htmlFor="verbio_client_secret">
+                Client secret
+                {!onPremNuanceSttCheck && !onPremNuanceTtsCheck && (
+                  <span>*</span>
+                )}
+              </label>
+              <input
+                id="verbio_client_secret"
+                required
+                type="text"
+                name="verbio_client_secret"
+                placeholder="Client secret"
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+                disabled={credential ? true : false}
+              />
+            </fieldset>
+            <fieldset>
+              <label htmlFor={`${vendor}_tts_model_id`}>
+                Engine version<span>*</span>
+              </label>
+              <Selector
+                id={"verbio_engine_version"}
+                name={"verbio_engine_version"}
+                value={engineVersion}
+                options={VERBIO_STT_MODELS}
+                onChange={(e) => {
+                  setEngineVersion(e.target.value);
+                }}
+              />
+            </fieldset>
+          </>
+        )}
         {vendor === VENDOR_AWS && (
           <fieldset>
             <label htmlFor="vendor">
@@ -1308,22 +1385,6 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
               onChange={(e) => {
                 setTtsModelId(e.target.value);
               }}
-            />
-          </fieldset>
-        )}
-        {vendor === VENDOR_DEEPGRAM && (
-          <fieldset>
-            <label htmlFor={`${vendor}_apikey`}>
-              API key{!isDeepgramOnpremEnabled && <span>*</span>}
-            </label>
-            <Passwd
-              id={`${vendor}_apikey`}
-              required={!isDeepgramOnpremEnabled}
-              name={`${vendor}_apikey`}
-              placeholder="API key"
-              value={apiKey ? getObscuredSecret(apiKey) : apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              disabled={credential ? true : false}
             />
           </fieldset>
         )}
@@ -1529,11 +1590,52 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
               disabled={hasValue(credential)}
               hidden
               name="use_hosted_deepgram_service"
+              label="Use hosted Deepgram Service"
+              initialCheck={!initialDeepgramOnpremCheck}
+              handleChecked={(e) => {
+                setInitialDeepgramOnpremCheck(!e.target.checked);
+
+                if (e.target.checked) {
+                  setTmpDeepgramSttUri(deepgramSttUri);
+                  setDeepgramSttUri("");
+                  setTmpDeepgramSttUseTls(deepgramSttUseTls);
+                  setDeepgramSttUseTls(false);
+                  setTmpDeepgramTtsUri(deepgramTtsUri);
+                  setDeepgramTtsUri("");
+                } else {
+                  if (tmpDeepgramSttUri) {
+                    setDeepgramSttUri(tmpDeepgramSttUri);
+                  }
+                  if (tmpDeepgramSttUseTls) {
+                    setDeepgramSttUseTls(tmpDeepgramSttUseTls);
+                  }
+                  if (tmpDeepgramTtsUri) {
+                    setDeepgramTtsUri(tmpDeepgramTtsUri);
+                  }
+                }
+              }}
+            >
+              <label htmlFor={`${vendor}_apikey`}>
+                API key<span>*</span>
+              </label>
+              <Passwd
+                id={`${vendor}_apikey`}
+                required
+                name={`${vendor}_apikey`}
+                placeholder="API key"
+                value={credential ? getObscuredSecret(apiKey) : apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                disabled={credential ? true : false}
+              />
+            </Checkzone>
+            <Checkzone
+              disabled={hasValue(credential)}
+              hidden
+              name="use_on-prem_deepgram_container"
               label="Use on-prem Deepgram container"
               initialCheck={initialDeepgramOnpremCheck}
               handleChecked={(e) => {
-                // setInitialDeepgramOnpremCheck(!e.target.checked);
-                setIsDeepgramOnpremEnabled(e.target.checked);
+                setInitialDeepgramOnpremCheck(e.target.checked);
                 if (e.target.checked) {
                   if (tmpDeepgramSttUri) {
                     setDeepgramSttUri(tmpDeepgramSttUri);
@@ -1541,36 +1643,63 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
                   if (tmpDeepgramSttUseTls) {
                     setDeepgramSttUseTls(tmpDeepgramSttUseTls);
                   }
+                  if (tmpDeepgramTtsUri) {
+                    setDeepgramTtsUri(tmpDeepgramTtsUri);
+                  }
                 } else {
                   setTmpDeepgramSttUri(deepgramSttUri);
                   setDeepgramSttUri("");
                   setTmpDeepgramSttUseTls(deepgramSttUseTls);
                   setDeepgramSttUseTls(false);
+                  setTmpDeepgramTtsUri(deepgramTtsUri);
+                  setDeepgramTtsUri("");
                 }
               }}
             >
+              <label htmlFor="deepgram_uri_for_stt">
+                STT Container URI<span>*</span>
+              </label>
+              <input
+                id="deepgram_uri_for_stt"
+                required
+                type="text"
+                name="deepgram_uri_for_stt"
+                placeholder="Container URI for STT"
+                value={deepgramSttUri}
+                onChange={(e) => setDeepgramSttUri(e.target.value)}
+              />
+              <label htmlFor="deepgram_stt_use_tls" className="chk">
+                <input
+                  id="deepgram_stt_use_tls"
+                  name="deepgram_stt_use_tls"
+                  type="checkbox"
+                  onChange={(e) => setDeepgramSttUseTls(e.target.checked)}
+                  defaultChecked={deepgramSttUseTls}
+                />
+                <div>Use TLS for STT</div>
+              </label>
+
               <label htmlFor="deepgram_uri_for_tts">
-                Container URI<span>*</span>
+                TTS Container URI<span>*</span>
               </label>
               <input
                 id="deepgram_uri_for_tts"
                 required
                 type="text"
                 name="deepgram_uri_for_tts"
-                placeholder="Container URI for TTS"
-                value={deepgramSttUri}
-                onChange={(e) => setDeepgramSttUri(e.target.value)}
+                placeholder="http://"
+                value={deepgramTtsUri}
+                onChange={(e) => setDeepgramTtsUri(e.target.value)}
               />
-              <label htmlFor="deepgram_tts_use_tls" className="chk">
-                <input
-                  id="deepgram_tts_use_tls"
-                  name="deepgram_tts_use_tls"
-                  type="checkbox"
-                  onChange={(e) => setDeepgramSttUseTls(e.target.checked)}
-                  defaultChecked={deepgramSttUseTls}
-                />
-                <div>Use TLS</div>
-              </label>
+              <label htmlFor={`${vendor}_apikey`}>Api key (if required)</label>
+              <Passwd
+                id={`${vendor}_apikey`}
+                name={`${vendor}_apikey`}
+                placeholder="API key"
+                value={credential ? getObscuredSecret(apiKey) : apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                disabled={credential ? true : false}
+              />
             </Checkzone>
           </fieldset>
         )}

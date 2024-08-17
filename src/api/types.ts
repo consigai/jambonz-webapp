@@ -122,9 +122,10 @@ export interface ForgotPassword {
 }
 
 export interface SystemInformation {
-  domain_name: string;
-  sip_domain_name: string;
-  monitoring_domain_name: string;
+  domain_name: null | string;
+  sip_domain_name: null | string;
+  monitoring_domain_name: null | string;
+  private_network_cidr: null | string;
 }
 
 export interface TtsCache {
@@ -402,6 +403,7 @@ export interface SpeechCredential {
   custom_stt_endpoint_url: null | string;
   custom_stt_endpoint: null | string;
   client_id: null | string;
+  client_secret: null | string;
   secret: null | string;
   nuance_tts_uri: null | string;
   nuance_stt_uri: null | string;
@@ -418,9 +420,11 @@ export interface SpeechCredential {
   cobalt_server_uri: null | string;
   model_id: null | string;
   voice_engine: null | string;
+  engine_version: null | string;
   model: null | string;
   options: null | string;
   deepgram_stt_uri: null | string;
+  deepgram_tts_uri: null | string;
   deepgram_stt_use_tls: number;
 }
 
@@ -487,6 +491,7 @@ export interface SipGateway extends Gateway {
   port: number | null;
   pad_crypto?: boolean;
   send_options_ping?: boolean;
+  use_sips_scheme?: boolean;
 }
 
 export interface SmppGateway extends Gateway {
