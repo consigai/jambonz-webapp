@@ -18,6 +18,7 @@ import {
   getGoogleCustomVoices,
   getSpeechSupportedLanguagesAndVoices,
   postGoogleCustomVoice,
+  postGoogleVoiceCloningKey,
   postSpeechService,
   putGoogleCustomVoice,
   putSpeechService,
@@ -48,6 +49,9 @@ import {
   AWS_INSTANCE_PROFILE,
   VENDOR_VERBIO,
   VENDOR_SPEECHMATICS,
+  VENDOR_CARTESIA,
+  VENDOR_VOXIST,
+  VENDOR_OPENAI,
 } from "src/vendor";
 import { MSG_REQUIRED_FIELDS } from "src/constants";
 import {
@@ -76,8 +80,9 @@ import type {
 import { setAccountFilter, setLocation } from "src/store/localStore";
 import {
   ADDITIONAL_SPEECH_VENDORS,
+  DEFAULT_CARTESIA_OPTIONS,
   DEFAULT_ELEVENLABS_OPTIONS,
-  DEFAULT_GOOGLE_CUSTOM_VOICES_REPORTED_USAGE,
+  DEFAULT_GOOGLE_CUSTOM_VOICE,
   DEFAULT_PLAYHT_OPTIONS,
   DEFAULT_RIMELABS_OPTIONS,
   DEFAULT_VERBIO_MODEL,
@@ -120,6 +125,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
   const [ttsRegion, setTtsRegion] = useState("");
   const [ttsApiKey, setTtsApiKey] = useState("");
   const [ttsModelId, setTtsModelId] = useState("");
+  const [sttModelId, setSttModelId] = useState("");
   const [engineVersion, setEngineVersion] = useState(DEFAULT_VERBIO_MODEL);
   const [instanceId, setInstanceId] = useState("");
   const [initialCheckCustomTts, setInitialCheckCustomTts] = useState(false);
@@ -142,6 +148,10 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
   const [tmpCustomVendorTtsUrl, setTmpCustomVendorTtsUrl] = useState("");
   const [customVendorTtsUrl, setCustomVendorTtsUrl] = useState("");
   const [tmpCustomVendorSttUrl, setTmpCustomVendorSttUrl] = useState("");
+  const [customVendorTtsStreamingUrl, setCustomVendorTtsStreamingUrl] =
+    useState("");
+  const [tmpCustomVendorTtsStreamingUrl, setTmpCustomVendorTtsStreamingUrl] =
+    useState("");
   const [customVendorSttUrl, setCustomVendorSttUrl] = useState("");
   const [initialOnPremNuanceTtsCheck, setInitialOnPremNuanceTtsCheck] =
     useState(false);
@@ -159,6 +169,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
   const [customVoices, setCustomVoices] = useState<GoogleCustomVoice[]>([]);
   const [customVoicesMessage, setCustomVoicesMessage] = useState("");
   const [ttsModels, setTtsModels] = useState<Model[]>([]);
+  const [sttModels, setSttModels] = useState<Model[]>([]);
   const [optionsInitialChecked, setOptionsInitialChecked] = useState(false);
   const [options, setOptions] = useState("");
   const [tmpOptions, setTmpOptions] = useState("");
@@ -217,6 +228,8 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
           return DEFAULT_PLAYHT_OPTIONS;
         case VENDOR_RIMELABS:
           return DEFAULT_RIMELABS_OPTIONS;
+        case VENDOR_CARTESIA:
+          return DEFAULT_CARTESIA_OPTIONS;
       }
     }
     return "";
@@ -231,9 +244,22 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
           return "https://docs.play.ht/reference/api-generate-tts-audio-stream";
         case VENDOR_RIMELABS:
           return "https://rimelabs.mintlify.app/api-reference/endpoint/streaming-mp3#variable-parameters";
+        case VENDOR_CARTESIA:
+          return "https://docs.cartesia.ai/api-reference/tts/bytes";
       }
     }
     return "";
+  };
+
+  const getModelLabelByVendor = (vendor: Lowercase<Vendor>) => {
+    switch (vendor) {
+      case VENDOR_PLAYHT:
+        return "Voice Engine";
+      case VENDOR_CARTESIA:
+        return "Model ID";
+      default:
+        return "Model";
+    }
   };
 
   const handlePutGoogleCustomVoices = () => {
@@ -243,14 +269,43 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
     if (useCustomVoicesCheck) {
       Promise.all(
         customVoices.map((v) => {
+          // voice cloning key is 200kb file, the content should be uploaded in separated api
+          const voice_cloning_key = v.voice_cloning_key_file;
+          delete v.voice_cloning_key_file;
+          delete v.voice_cloning_key;
+
+          const uploadVoiceCloningKey = (sid: string) => {
+            if (voice_cloning_key) {
+              return postGoogleVoiceCloningKey(sid, voice_cloning_key);
+            }
+          };
+
           if (v.google_custom_voice_sid) {
             const sid = v.google_custom_voice_sid;
             delete v.google_custom_voice_sid;
-            return putGoogleCustomVoice(sid, v);
+            return new Promise((res, rej) => {
+              putGoogleCustomVoice(sid, v)
+                .then((resp) => {
+                  if (!voice_cloning_key) {
+                    return res(resp);
+                  }
+                  uploadVoiceCloningKey(sid)?.then(res).catch(rej);
+                })
+                .catch(rej);
+            });
           } else {
-            return postGoogleCustomVoice({
-              ...v,
-              speech_credential_sid: credential.data?.speech_credential_sid,
+            return new Promise((res, rej) => {
+              postGoogleCustomVoice({
+                ...v,
+                speech_credential_sid: credential.data?.speech_credential_sid,
+              })
+                .then(({ json }) => {
+                  if (!voice_cloning_key) {
+                    return res(json);
+                  }
+                  uploadVoiceCloningKey(json.sid)?.then(res).catch(rej);
+                })
+                .catch(rej);
             });
           }
         }),
@@ -265,7 +320,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         .catch((error) => {
           toastError(error.msg);
         });
-    } else if (useCustomVoicesCheck && customVoices.length > 0) {
+    } else if (!useCustomVoicesCheck && customVoices.length > 0) {
       Promise.all(
         customVoices.map((v) => {
           if (v.google_custom_voice_sid) {
@@ -334,11 +389,16 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         ...(vendor === VENDOR_NVIDIA && {
           riva_server_uri: rivaServerUri || null,
         }),
+        ...(vendor === VENDOR_CARTESIA && {
+          model_id: ttsModelId || null,
+          options: options || null,
+        }),
         ...(vendor === VENDOR_CUSTOM && {
           vendor: (vendor + ":" + customVendorName) as Lowercase<Vendor>,
           use_for_tts: ttsCheck ? 1 : 0,
           use_for_stt: sttCheck ? 1 : 0,
           custom_tts_url: customVendorTtsUrl || null,
+          custom_tts_streaming_url: customVendorTtsStreamingUrl || null,
           custom_stt_url: customVendorSttUrl || null,
           auth_token: customVendorAuthToken || null,
         }),
@@ -364,6 +424,10 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         ...(vendor === VENDOR_PLAYHT &&
           ttsModelId && {
             voice_engine: ttsModelId,
+          }),
+        ...(vendor === VENDOR_OPENAI &&
+          sttModelId && {
+            model_id: sttModelId,
           }),
         ...(vendor === VENDOR_DEEPGRAM && {
           deepgram_stt_uri: deepgramSttUri || null,
@@ -416,12 +480,15 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
               vendor === VENDOR_WELLSAID ||
               vendor === VENDOR_DEEPGRAM ||
               vendor === VENDOR_ASSEMBLYAI ||
+              vendor === VENDOR_VOXIST ||
               vendor === VENDOR_SONIOX ||
               vendor === VENDOR_SPEECHMATICS ||
               vendor === VENDOR_ELEVENLABS ||
               vendor === VENDOR_PLAYHT ||
               vendor === VENDOR_RIMELABS ||
-              vendor === VENDOR_WHISPER
+              vendor === VENDOR_WHISPER ||
+              vendor === VENDOR_CARTESIA ||
+              vendor === VENDOR_OPENAI
                 ? apiKey
                 : null,
           }),
@@ -438,12 +505,32 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
           .then(({ json }) => {
             if (vendor === VENDOR_GOOGLE && useCustomVoicesCheck) {
               Promise.all(
-                customVoices.map((v) =>
-                  postGoogleCustomVoice({
-                    ...v,
-                    speech_credential_sid: json.sid,
-                  }),
-                ),
+                customVoices.map((v) => {
+                  // voice cloning key is 200kb file, the content should be uploaded in separated api
+                  const voice_cloning_key = v.voice_cloning_key_file;
+                  delete v.voice_cloning_key_file;
+                  delete v.voice_cloning_key;
+
+                  const uploadVoiceCloningKey = (sid: string) => {
+                    if (voice_cloning_key) {
+                      return postGoogleVoiceCloningKey(sid, voice_cloning_key);
+                    }
+                  };
+
+                  return new Promise((res, rej) => {
+                    postGoogleCustomVoice({
+                      ...v,
+                      speech_credential_sid: json.sid,
+                    })
+                      .then(({ json }) => {
+                        if (!voice_cloning_key) {
+                          res(json);
+                        }
+                        uploadVoiceCloningKey(json.sid)?.then(res).catch(rej);
+                      })
+                      .catch(rej);
+                  });
+                }),
               ).then(() => {
                 toastSuccess("Speech credential created successfully");
                 navigate(ROUTE_INTERNAL_SPEECH);
@@ -467,7 +554,9 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
       vendor === VENDOR_ELEVENLABS ||
       vendor === VENDOR_WHISPER ||
       vendor === VENDOR_PLAYHT ||
-      vendor === VENDOR_RIMELABS
+      vendor === VENDOR_RIMELABS ||
+      vendor === VENDOR_CARTESIA ||
+      vendor === VENDOR_OPENAI
     ) {
       getSpeechSupportedLanguagesAndVoices(
         currentServiceProvider?.service_provider_sid,
@@ -482,6 +571,15 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
             !json.models.find((m) => m.value === ttsModelId)
           ) {
             setTtsModelId(json.models[0].value);
+          }
+        }
+        if (json.sttModels) {
+          setSttModels(json.sttModels);
+          if (
+            json.sttModels.length > 0 &&
+            !json.sttModels.some((m) => m.value === sttModelId)
+          ) {
+            setSttModelId(json.sttModels[0].value);
           }
         }
       });
@@ -623,6 +721,12 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
       setTmpCustomVendorSttUrl(credential.data.custom_stt_url || "");
       setCustomVendorTtsUrl(credential.data.custom_tts_url || "");
       setTmpCustomVendorTtsUrl(credential.data.custom_tts_url || "");
+      setCustomVendorTtsStreamingUrl(
+        credential.data.custom_tts_streaming_url || "",
+      );
+      setTmpCustomVendorTtsStreamingUrl(
+        credential.data.custom_tts_streaming_url || "",
+      );
       if (credential.data.label) {
         setLabel(credential.data.label);
       }
@@ -631,6 +735,9 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
       }
       if (credential.data.model_id) {
         setTtsModelId(credential.data.model_id);
+      }
+      if (credential.data.model_id && vendor === VENDOR_OPENAI) {
+        setSttModelId(credential.data.model_id);
       }
     }
     if (credential?.data?.options) {
@@ -808,9 +915,11 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         {vendor && (
           <fieldset>
             {vendor !== VENDOR_ASSEMBLYAI &&
+              vendor !== VENDOR_VOXIST &&
               vendor !== VENDOR_COBALT &&
               vendor !== VENDOR_SONIOX &&
               vendor !== VENDOR_SPEECHMATICS &&
+              vendor !== VENDOR_OPENAI &&
               vendor != VENDOR_CUSTOM && (
                 <label htmlFor="use_for_tts" className="chk">
                   <input
@@ -828,6 +937,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
               vendor !== VENDOR_WHISPER &&
               vendor !== VENDOR_PLAYHT &&
               vendor !== VENDOR_RIMELABS &&
+              vendor !== VENDOR_CARTESIA &&
               vendor !== VENDOR_ELEVENLABS && (
                 <label htmlFor="use_for_stt" className="chk">
                   <input
@@ -851,24 +961,45 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
                     setTtsCheck(e.target.checked);
                     if (!e.target.checked) {
                       setTmpCustomVendorTtsUrl(customVendorTtsUrl);
+                      setTmpCustomVendorTtsStreamingUrl(
+                        customVendorTtsStreamingUrl,
+                      );
                       setCustomVendorTtsUrl("");
+                      setCustomVendorTtsStreamingUrl("");
                     } else {
                       setCustomVendorTtsUrl(tmpCustomVendorTtsUrl);
+                      setCustomVendorTtsStreamingUrl(
+                        tmpCustomVendorTtsStreamingUrl,
+                      );
                     }
                   }}
                 >
                   <label htmlFor="custom_vendor_use_for_tts">
-                    TTS HTTP URL<span>*</span>
+                    Http URL (non-streaming)
                   </label>
                   <input
                     id="custom_vendor_use_for_tts"
                     type="text"
                     name="custom_vendor_use_for_tts"
                     placeholder="Required"
-                    required={ttsCheck}
+                    required={ttsCheck && !customVendorTtsStreamingUrl}
                     value={customVendorTtsUrl}
                     onChange={(e) => {
                       setCustomVendorTtsUrl(e.target.value);
+                    }}
+                  />
+                  <label htmlFor="custom_vendor_use_for_tts_streaming_ws">
+                    Ws URL (streaming)
+                  </label>
+                  <input
+                    id="custom_vendor_use_for_tts_streaming_ws"
+                    type="text"
+                    name="custom_vendor_use_for_tts_streaming_ws"
+                    placeholder="Required"
+                    required={ttsCheck && !customVendorTtsUrl}
+                    value={customVendorTtsStreamingUrl}
+                    onChange={(e) => {
+                      setCustomVendorTtsStreamingUrl(e.target.value);
                     }}
                   />
                 </Checkzone>
@@ -978,15 +1109,8 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
                     name="use_custom_voice"
                     type="checkbox"
                     onChange={(e) => {
-                      if (customVoices.length === 0) {
-                        setCustomVoices([
-                          {
-                            name: "",
-                            reported_usage:
-                              DEFAULT_GOOGLE_CUSTOM_VOICES_REPORTED_USAGE,
-                            model: "",
-                          },
-                        ]);
+                      if (e.target.checked && customVoices.length === 0) {
+                        setCustomVoices([DEFAULT_GOOGLE_CUSTOM_VOICE]);
                       }
                       setUseCustomVoicesCheck(e.target.checked);
                     }}
@@ -1009,7 +1133,10 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
                           <div>
                             <div>
                               <label htmlFor="custom_voice_name">
-                                Name / Reported Usage
+                                Name
+                                {!v.use_voice_cloning_key
+                                  ? " / Reported Usage"
+                                  : ""}
                               </label>
                             </div>
                           </div>
@@ -1029,49 +1156,112 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
                               />
                             </div>
 
-                            <div>
-                              <Selector
-                                id={"google_custom_voices_reported_usage"}
-                                name={"google_custom_voices_reported_usage"}
-                                value={v.reported_usage}
-                                options={GOOGLE_CUSTOM_VOICES_REPORTED_USAGE}
-                                onChange={(e) => {
-                                  updateCustomVoices(
-                                    i,
-                                    "reported_usage",
-                                    e.target.value,
-                                  );
-                                }}
-                              />
-                            </div>
+                            {!v.use_voice_cloning_key && (
+                              <div>
+                                <Selector
+                                  id={"google_custom_voices_reported_usage"}
+                                  name={"google_custom_voices_reported_usage"}
+                                  value={v.reported_usage}
+                                  options={GOOGLE_CUSTOM_VOICES_REPORTED_USAGE}
+                                  onChange={(e) => {
+                                    updateCustomVoices(
+                                      i,
+                                      "reported_usage",
+                                      e.target.value,
+                                    );
+                                  }}
+                                />
+                              </div>
+                            )}
                           </div>
 
-                          <div>
-                            <div>
-                              <label htmlFor="custom_voice_name">Model</label>
-                            </div>
-                          </div>
+                          <label
+                            htmlFor={`use_voice_cloning_key_${i}`}
+                            className="chk"
+                          >
+                            <input
+                              id={`use_voice_cloning_key_${i}`}
+                              name={`use_voice_cloning_key_${i}`}
+                              type="checkbox"
+                              onChange={(e) => {
+                                updateCustomVoices(
+                                  i,
+                                  "use_voice_cloning_key",
+                                  e.target.checked ? 1 : 0,
+                                );
+                              }}
+                              checked={v.use_voice_cloning_key ? true : false}
+                            />
+                            <div>Use voice cloning key</div>
+                          </label>
 
-                          <div>
-                            <div>
-                              <input
-                                id={`sip_ip_${i}`}
-                                name={`sip_ip_${i}`}
-                                type="text"
-                                placeholder="Model"
-                                required
-                                value={v.model}
-                                style={{ maxWidth: "100%" }}
-                                onChange={(e) => {
-                                  updateCustomVoices(
-                                    i,
-                                    "model",
-                                    e.target.value,
-                                  );
-                                }}
-                              />
-                            </div>
-                          </div>
+                          {!v.use_voice_cloning_key && (
+                            <>
+                              <div>
+                                <div>
+                                  <label htmlFor="custom_voice_name">
+                                    Model
+                                  </label>
+                                </div>
+                              </div>
+
+                              <div>
+                                <div>
+                                  <input
+                                    id={`sip_ip_${i}`}
+                                    name={`sip_ip_${i}`}
+                                    type="text"
+                                    placeholder="Model"
+                                    required
+                                    value={v.model}
+                                    style={{ maxWidth: "100%" }}
+                                    onChange={(e) => {
+                                      updateCustomVoices(
+                                        i,
+                                        "model",
+                                        e.target.value,
+                                      );
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </>
+                          )}
+
+                          {v.use_voice_cloning_key === 1 && (
+                            <>
+                              <div>
+                                <div>
+                                  {hasValue(v.voice_cloning_key) && (
+                                    <pre>
+                                      <code>{v.voice_cloning_key}</code>
+                                    </pre>
+                                  )}
+                                </div>
+                                <div>
+                                  <FileUpload
+                                    id={`google_voice_cloning_key_${i}`}
+                                    name={`google_voice_cloning_key_${i}`}
+                                    handleFile={(file) => {
+                                      updateCustomVoices(
+                                        i,
+                                        "voice_cloning_key_file",
+                                        file,
+                                      );
+                                      file.text().then((text) => {
+                                        updateCustomVoices(
+                                          i,
+                                          "voice_cloning_key",
+                                          text.substring(0, 100) + "...",
+                                        );
+                                      });
+                                    }}
+                                    required={!v.voice_cloning_key}
+                                  />
+                                </div>
+                              </div>
+                            </>
+                          )}
 
                           <button
                             className="btnty"
@@ -1112,12 +1302,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
                           setCustomVoicesMessage("");
                           setCustomVoices((prev) => [
                             ...prev,
-                            {
-                              name: "",
-                              reported_usage:
-                                DEFAULT_GOOGLE_CUSTOM_VOICES_REPORTED_USAGE,
-                              model: "",
-                            },
+                            DEFAULT_GOOGLE_CUSTOM_VOICE,
                           ]);
                         }}
                       >
@@ -1363,11 +1548,14 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
 
         {(vendor === VENDOR_WELLSAID ||
           vendor === VENDOR_ASSEMBLYAI ||
+          vendor === VENDOR_VOXIST ||
           vendor == VENDOR_ELEVENLABS ||
           vendor === VENDOR_WHISPER ||
           vendor === VENDOR_PLAYHT ||
           vendor === VENDOR_RIMELABS ||
           vendor === VENDOR_SONIOX ||
+          vendor === VENDOR_CARTESIA ||
+          vendor === VENDOR_OPENAI ||
           vendor === VENDOR_SPEECHMATICS) && (
           <fieldset>
             {vendor === VENDOR_PLAYHT && (
@@ -1403,26 +1591,16 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
             />
           </fieldset>
         )}
-        {vendor === VENDOR_PLAYHT && ttsModels.length > 0 && (
-          <fieldset>
-            <label htmlFor={`${vendor}_tts_model_id`}>Voice engine</label>
-            <Selector
-              id={"tts_model_id"}
-              name={"tts_model_id"}
-              value={ttsModelId}
-              options={ttsModels}
-              onChange={(e) => {
-                setTtsModelId(e.target.value);
-              }}
-            />
-          </fieldset>
-        )}
         {(vendor == VENDOR_ELEVENLABS ||
           vendor == VENDOR_WHISPER ||
+          vendor === VENDOR_CARTESIA ||
+          vendor === VENDOR_PLAYHT ||
           vendor == VENDOR_RIMELABS) &&
           ttsModels.length > 0 && (
             <fieldset>
-              <label htmlFor={`${vendor}_tts_model_id`}>Model</label>
+              <label htmlFor={`${vendor}_tts_model_id`}>
+                {getModelLabelByVendor(vendor)}
+              </label>
               <Selector
                 id={"tts_model_id"}
                 name={"tts_model_id"}
@@ -1434,8 +1612,25 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
               />
             </fieldset>
           )}
+        {vendor == VENDOR_OPENAI && sttModels.length > 0 && (
+          <fieldset>
+            <label htmlFor={`${vendor}_stt_model_id`}>
+              {getModelLabelByVendor(vendor)}
+            </label>
+            <Selector
+              id={"stt_model_id"}
+              name={"stt_model_id"}
+              value={sttModelId}
+              options={sttModels}
+              onChange={(e) => {
+                setSttModelId(e.target.value);
+              }}
+            />
+          </fieldset>
+        )}
         {(vendor === VENDOR_ELEVENLABS ||
           vendor === VENDOR_PLAYHT ||
+          vendor === VENDOR_CARTESIA ||
           vendor === VENDOR_RIMELABS) && (
           <fieldset>
             <Checkzone

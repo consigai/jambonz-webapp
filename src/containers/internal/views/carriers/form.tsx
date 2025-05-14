@@ -19,6 +19,7 @@ import {
 import {
   DEFAULT_SIP_GATEWAY,
   DEFAULT_SMPP_GATEWAY,
+  DTMF_TYPE_SELECTION,
   FQDN,
   FQDN_TOP_LEVEL,
   INVALID,
@@ -29,7 +30,7 @@ import {
   TECH_PREFIX_MINLENGTH,
   USER_ACCOUNT,
 } from "src/api/constants";
-import { Icons, Section } from "src/components";
+import { Icons, Section, Tooltip } from "src/components";
 import {
   Checkzone,
   Message,
@@ -52,16 +53,17 @@ import {
   isNotBlank,
 } from "src/utils";
 
-import type {
-  Account,
-  UseApiDataMap,
-  Carrier,
-  SipGateway,
-  SmppGateway,
-  PredefinedCarrier,
-  Sbc,
-  Smpp,
-  Application,
+import {
+  type Account,
+  type UseApiDataMap,
+  type Carrier,
+  type SipGateway,
+  type SmppGateway,
+  type PredefinedCarrier,
+  type Sbc,
+  type Smpp,
+  type Application,
+  DtmfType,
 } from "src/api/types";
 import { setAccountFilter, setLocation } from "src/store/localStore";
 import { RegisterStatus } from "./register-status";
@@ -101,6 +103,7 @@ export const CarrierForm = ({
   const [e164, setE164] = useState(false);
   const [applicationSid, setApplicationSid] = useState("");
   const [accountSid, setAccountSid] = useState("");
+  const [dtmfType, setDtmfType] = useState<DtmfType>("rfc2833");
 
   const [sipRegister, setSipRegister] = useState(false);
   const [sipUser, setSipUser] = useState("");
@@ -115,6 +118,9 @@ export const CarrierForm = ({
   const [initialPrefix, setInitialPrefix] = useState(false);
   const [diversion, setDiversion] = useState("");
   const [initialDiversion, setInitialDiversion] = useState(false);
+
+  const [initialSipProxy, setInitialSipProxy] = useState(false);
+  const [outboundSipProxy, setOutboundSipProxy] = useState("");
 
   const [smppSystemId, setSmppSystemId] = useState("");
   const [smppPass, setSmppPass] = useState("");
@@ -138,6 +144,44 @@ export const CarrierForm = ({
   const [sipMessage, setSipMessage] = useState("");
   const [smppInboundMessage, setSmppInboundMessage] = useState("");
   const [smppOutboundMessage, setSmppOutboundMessage] = useState("");
+
+  const validateOutboundSipGateway = (gateway: string): boolean => {
+    /** validate outbound sip gateway that can be
+     * ip address
+        dns name
+        sip(s):ip address
+        sip(s):dns name
+        full sip uri
+        full sips uri
+     */
+    // firstly checkig it's including sip or sips
+    if (
+      gateway.includes(":") &&
+      !gateway.includes("sip:") &&
+      !gateway.includes("sips:")
+    ) {
+      return false;
+    }
+    if (gateway.includes("sip:") || gateway.includes("sips:")) {
+      const sipGateway = gateway.trim().split(":");
+      if (sipGateway.length === 2) {
+        const sipGatewayType = getIpValidationType(sipGateway[1]);
+        if (sipGatewayType === INVALID) {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    }
+    // check IP address or domain name
+    else {
+      const sipGatewayType = getIpValidationType(gateway);
+      if (sipGatewayType === INVALID) {
+        return false;
+      }
+    }
+    return true;
+  };
 
   const setCarrierStates = (obj: Carrier) => {
     if (obj) {
@@ -204,6 +248,13 @@ export const CarrierForm = ({
         setInitialDiversion(false);
       }
 
+      if (obj.outbound_sip_proxy) {
+        setOutboundSipProxy(obj.outbound_sip_proxy);
+        setInitialSipProxy(true);
+      } else {
+        setInitialSipProxy(false);
+      }
+
       if (obj.smpp_system_id) {
         setSmppSystemId(obj.smpp_system_id);
       }
@@ -215,6 +266,9 @@ export const CarrierForm = ({
       }
       if (obj.smpp_inbound_password) {
         setSmppInboundPass(obj.smpp_inbound_password);
+      }
+      if (obj.dtmf_type) {
+        setDtmfType(obj.dtmf_type);
       }
     }
   };
@@ -502,6 +556,14 @@ export const CarrierForm = ({
       }
     }
 
+    if (
+      isNotBlank(outboundSipProxy) &&
+      !validateOutboundSipGateway(outboundSipProxy)
+    ) {
+      toastError("Please provide a valid SIP Proxy domain or IP address.");
+      return;
+    }
+
     if (currentServiceProvider) {
       const carrierPayload: Partial<Carrier> = {
         name: carrierName.trim(),
@@ -524,6 +586,8 @@ export const CarrierForm = ({
         smpp_password: smppPass.trim() || null,
         smpp_inbound_system_id: smppInboundSystemId.trim() || null,
         smpp_inbound_password: smppInboundPass.trim() || null,
+        dtmf_type: dtmfType,
+        outbound_sip_proxy: outboundSipProxy.trim().replaceAll(" ", "") || null,
       };
 
       if (carrier && carrier.data) {
@@ -764,6 +828,23 @@ export const CarrierForm = ({
                       : false
                 }
               />
+
+              <label htmlFor="dtmf_type">
+                <Tooltip
+                  text={
+                    "RFC 2833 is commonly used on VoIP networks. Do not change unless you are certain this carrier does not support it"
+                  }
+                >
+                  DTMF type
+                </Tooltip>
+              </label>
+              <Selector
+                id="dtmf_type"
+                name="dtmf_type"
+                value={dtmfType}
+                options={DTMF_TYPE_SELECTION}
+                onChange={(e) => setDtmfType(e.target.value as DtmfType)}
+              />
               {user &&
                 disableDefaultTrunkRouting(user?.scope) &&
                 accountSid &&
@@ -943,6 +1024,33 @@ export const CarrierForm = ({
                   placeholder="Phone number or SIP URI"
                   onChange={(e) => {
                     setDiversion(e.target.value);
+                  }}
+                />
+              </Checkzone>
+            </fieldset>
+            <fieldset>
+              <Checkzone
+                hidden
+                name="outbound_sip_proxy"
+                label="Outbound SIP Proxy"
+                initialCheck={initialSipProxy}
+                handleChecked={(e) => {
+                  if (!e.target.checked) {
+                    setOutboundSipProxy("");
+                  }
+                }}
+              >
+                <MS>
+                  Send all calls to this carrier through an outbound proxy
+                </MS>
+                <input
+                  id="outbound_sip_proxy"
+                  name="outbound_sip_proxy"
+                  type="text"
+                  value={outboundSipProxy}
+                  placeholder="Outbound Sip Proxy"
+                  onChange={(e) => {
+                    setOutboundSipProxy(e.target.value);
                   }}
                 />
               </Checkzone>

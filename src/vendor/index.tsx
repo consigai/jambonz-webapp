@@ -20,10 +20,13 @@ export const VENDOR_CUSTOM = "custom";
 export const VENDOR_COBALT = "cobalt";
 export const VENDOR_ELEVENLABS = "elevenlabs";
 export const VENDOR_ASSEMBLYAI = "assemblyai";
+export const VENDOR_VOXIST = "voxist";
 export const VENDOR_WHISPER = "whisper";
 export const VENDOR_PLAYHT = "playht";
 export const VENDOR_RIMELABS = "rimelabs";
 export const VENDOR_VERBIO = "verbio";
+export const VENDOR_CARTESIA = "cartesia";
+export const VENDOR_OPENAI = "openai";
 
 export const vendors: VendorOptions[] = [
   {
@@ -83,6 +86,10 @@ export const vendors: VendorOptions[] = [
     value: VENDOR_ASSEMBLYAI,
   },
   {
+    name: "Voxist",
+    value: VENDOR_VOXIST,
+  },
+  {
     name: "Whisper",
     value: VENDOR_WHISPER,
   },
@@ -97,6 +104,14 @@ export const vendors: VendorOptions[] = [
   {
     name: "Verbio",
     value: VENDOR_VERBIO,
+  },
+  {
+    name: "Cartesia",
+    value: VENDOR_CARTESIA,
+  },
+  {
+    name: "OpenAI",
+    value: VENDOR_OPENAI,
   },
 ].sort((a, b) => a.name.localeCompare(b.name)) as VendorOptions[];
 

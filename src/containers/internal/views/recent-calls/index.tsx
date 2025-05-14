@@ -63,7 +63,12 @@ export const RecentCalls = () => {
       count: Number(perPageFilter),
       ...(dateFilter === "today"
         ? { start: dayjs().startOf("date").toISOString() }
-        : { days: Number(dateFilter) }),
+        : dateFilter === "yesterday"
+          ? {
+              start: dayjs().subtract(1, "day").startOf("day").toISOString(),
+              end: dayjs().subtract(1, "day").endOf("day").toISOString(),
+            }
+          : { days: Number(dateFilter) }),
       ...(statusFilter !== "all" && { answered: statusFilter }),
       ...(directionFilter !== "io" && { direction: directionFilter }),
       ...(filter && { filter }),
@@ -157,7 +162,10 @@ export const RecentCalls = () => {
           {!hasValue(calls) && hasLength(accounts) ? (
             <Spinner />
           ) : hasLength(calls) ? (
-            calls.map((call) => <DetailsItem key={call.call_sid} call={call} />)
+            //call.call_sid is null incase of failure, cannot be used as key
+            calls.map((call) => (
+              <DetailsItem key={call.sip_callid} call={call} />
+            ))
           ) : (
             <M>No data.</M>
           )}

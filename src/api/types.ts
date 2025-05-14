@@ -143,6 +143,7 @@ export interface User {
   name: string;
   email: string;
   is_active: boolean;
+  is_view_only: boolean;
   force_change: boolean;
   account_sid: string | null;
   account_name?: string | null;
@@ -174,6 +175,7 @@ export interface UserUpdatePayload {
   name: string;
   force_change: boolean;
   is_active: boolean;
+  is_view_only: boolean;
   service_provider_sid: string | null;
   account_sid: string | null;
 }
@@ -318,7 +320,6 @@ export interface Application {
   app_json: null | string;
   call_hook: null | WebHook;
   account_sid: null | string;
-  messaging_hook: null | WebHook;
   application_sid: string;
   call_status_hook: null | WebHook;
   speech_synthesis_voice: null | string;
@@ -381,7 +382,10 @@ export interface GoogleCustomVoice {
   speech_credential_sid?: string;
   name: string;
   reported_usage: string;
-  model: string;
+  model?: string;
+  use_voice_cloning_key: number;
+  voice_cloning_key?: string | null;
+  voice_cloning_key_file?: File | null;
 }
 
 export interface SpeechCredential {
@@ -420,6 +424,7 @@ export interface SpeechCredential {
   auth_token: null | string;
   custom_stt_url: null | string;
   custom_tts_url: null | string;
+  custom_tts_streaming_url: null | string;
   label: null | string;
   cobalt_server_uri: null | string;
   model_id: null | string;
@@ -448,6 +453,8 @@ export interface CarrierRegisterStatus {
   callId: null | string;
 }
 
+export type DtmfType = "rfc2833" | "tones" | "info";
+
 export interface Carrier {
   voip_carrier_sid: string;
   name: string;
@@ -474,6 +481,8 @@ export interface Carrier {
   smpp_inbound_password: null | string;
   smpp_enquire_link_interval: number;
   register_status: CarrierRegisterStatus;
+  dtmf_type: DtmfType;
+  outbound_sip_proxy: string | null;
 }
 
 export interface PredefinedCarrier extends Carrier {
@@ -721,6 +730,7 @@ export interface SpeechSupportedLanguagesAndVoices {
   tts: VoiceLanguage[];
   stt: Language[];
   models: Model[];
+  sttModels: Model[];
 }
 
 export interface ElevenLabsOptions {
@@ -747,4 +757,27 @@ export interface PlayHTOptions {
 export interface RimelabsOptions {
   speedAlpha: number;
   reduceLatency: boolean;
+}
+
+export type CartesiaEmotions =
+  | "anger:lowest"
+  | "anger:low"
+  | "anger:high"
+  | "anger:highest"
+  | "positivity:lowest"
+  | "positivity:low"
+  | "positivity:high"
+  | "positivity:highest"
+  | "surprise:lowest"
+  | "surprise:high"
+  | "surprise:highest"
+  | "sadness:lowest"
+  | "sadness:low"
+  | "curiosity:low"
+  | "curiosity:high"
+  | "curiosity:highest";
+
+export interface CartesiaOptions {
+  speed: number;
+  emotion: CartesiaEmotions;
 }

@@ -1,7 +1,8 @@
-import { hasValue } from "src/utils";
 import type {
+  CartesiaOptions,
   Currency,
   ElevenLabsOptions,
+  GoogleCustomVoice,
   LimitField,
   LimitUnitOption,
   PasswordSettings,
@@ -31,6 +32,7 @@ interface JambonzWindowObject {
   DEFAULT_SERVICE_PROVIDER_SID: string;
   STRIPE_PUBLISHABLE_KEY: string;
   DISABLE_ADDITIONAL_SPEECH_VENDORS: string;
+  AWS_REGION: string;
 }
 
 declare global {
@@ -42,9 +44,10 @@ declare global {
 /** https://vitejs.dev/guide/env-and-mode.html#env-files */
 const CONFIGURED_API_BASE_URL =
   window.JAMBONZ?.API_BASE_URL || import.meta.env.VITE_API_BASE_URL;
-export const API_BASE_URL = hasValue(CONFIGURED_API_BASE_URL)
-  ? CONFIGURED_API_BASE_URL
-  : `${window.location.protocol}//${window.location.hostname}/api/v1`;
+export const API_BASE_URL =
+  CONFIGURED_API_BASE_URL && CONFIGURED_API_BASE_URL.length !== 0
+    ? CONFIGURED_API_BASE_URL
+    : `${window.location.protocol}//${window.location.hostname}/api/v1`;
 
 /** Serves mock API responses from a local dev API server */
 export const DEV_BASE_URL = import.meta.env.VITE_DEV_BASE_URL;
@@ -84,6 +87,9 @@ export const DISABLE_ADDITIONAL_SPEECH_VENDORS: boolean =
   JSON.parse(
     import.meta.env.VITE_APP_DISABLE_ADDITIONAL_SPEECH_VENDORS || "false",
   );
+
+export const AWS_REGION: string =
+  window.JAMBONZ?.AWS_REGION || import.meta.env.VITE_APP_AWS_REGION;
 
 export const DEFAULT_SERVICE_PROVIDER_SID: string =
   window.JAMBONZ?.DEFAULT_SERVICE_PROVIDER_SID ||
@@ -247,6 +253,13 @@ export const GOOGLE_CUSTOM_VOICES_REPORTED_USAGE = [
   { name: "REALTIME", value: "REALTIME" },
   { name: "OFFLINE", value: "OFFLINE" },
 ];
+export const DEFAULT_GOOGLE_CUSTOM_VOICE: GoogleCustomVoice = {
+  name: "",
+  reported_usage: DEFAULT_GOOGLE_CUSTOM_VOICES_REPORTED_USAGE,
+  model: "",
+  use_voice_cloning_key: 0,
+  voice_cloning_key_file: null,
+};
 // ElevenLabs options
 export const DEFAULT_ELEVENLABS_OPTIONS: Partial<ElevenLabsOptions> = {
   optimize_streaming_latency: 3,
@@ -274,6 +287,12 @@ export const DEFAULT_PLAYHT_OPTIONS: Partial<PlayHTOptions> = {
   style_guidance: 20,
   text_guidance: 1,
 };
+
+// Cartesia options
+export const DEFAULT_CARTESIA_OPTIONS: Partial<CartesiaOptions> = {
+  speed: 0.0,
+  emotion: "positivity:high",
+};
 /** Password Length options */
 
 export const PASSWORD_MIN = 8;
@@ -287,6 +306,7 @@ export const PASSWORD_LENGTHS_OPTIONS = Array(13)
 /** List view filters */
 export const DATE_SELECTION = [
   { name: "today", value: "today" },
+  { name: "yesterday", value: "yesterday" },
   { name: "last 7d", value: "7" },
   { name: "last 14d", value: "14" },
   { name: "last 30d", value: "30" },
@@ -303,6 +323,11 @@ export const USER_SCOPE_SELECTION: SelectorOptions[] = [
   { name: "Admin", value: "admin" },
   { name: "Service provider", value: "service_provider" },
   { name: "Account", value: "account" },
+];
+
+export const DTMF_TYPE_SELECTION: SelectorOptions[] = [
+  { name: "RFC 2833", value: "rfc2833" },
+  { name: "Tones", value: "tones" },
 ];
 
 /** Available webhook methods */
