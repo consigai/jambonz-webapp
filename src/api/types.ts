@@ -338,6 +338,7 @@ export interface Application {
   fallback_speech_recognizer_vendor: null | string;
   fallback_speech_recognizer_language: null | string;
   fallback_speech_recognizer_label: null | string;
+  env_vars: null | Record<string, string | number | boolean>;
 }
 
 export interface PhoneNumber {
@@ -436,6 +437,7 @@ export interface SpeechCredential {
   deepgram_tts_uri: null | string;
   deepgram_stt_use_tls: number;
   speechmatics_stt_uri: null | string;
+  playht_tts_uri: null | string;
 }
 
 export interface Alert {
@@ -558,6 +560,11 @@ export interface PageQuery {
   count: number;
   start?: string;
   days?: number;
+}
+
+export interface PhoneNumberQuery extends PageQuery {
+  account_sid?: string;
+  filter?: string;
 }
 
 export interface CallQuery extends PageQuery {
@@ -780,4 +787,16 @@ export type CartesiaEmotions =
 export interface CartesiaOptions {
   speed: number;
   emotion: CartesiaEmotions;
+}
+
+export interface AppEnvProperty {
+  description: string;
+  type: string;
+  required?: boolean;
+  default?: string | number | boolean;
+  obscure?: boolean;
+}
+
+export interface AppEnv {
+  [key: string]: AppEnvProperty;
 }

@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, ButtonGroup, MS } from "@jambonz/ui-kit";
 import { Link, useNavigate } from "react-router-dom";
 
 import { toastError, toastSuccess, useSelectState } from "src/store";
-import { ClipBoard, Section } from "src/components";
+import { ClipBoard, Section, Tooltip } from "src/components";
 import {
   Selector,
   Checkzone,
@@ -23,6 +23,7 @@ import {
   putApplication,
   useServiceProviderData,
   useApiData,
+  getAppEnvSchema,
 } from "src/api";
 import {
   ROUTE_INTERNAL_ACCOUNTS,
@@ -48,11 +49,13 @@ import type {
   WebhookMethod,
   UseApiDataMap,
   SpeechCredential,
+  AppEnv,
 } from "src/api/types";
 import { MSG_REQUIRED_FIELDS, MSG_WEBHOOK_FIELDS } from "src/constants";
 import { hasLength, isUserAccountScope, useRedirect } from "src/utils";
 import { setAccountFilter, setLocation } from "src/store/localStore";
 import SpeechProviderSelection from "./speech-selection";
+import ObscureInput from "src/components/obscure-input";
 
 type ApplicationFormProps = {
   application?: UseApiDataMap<Application>;
@@ -122,6 +125,12 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
     useState("");
   const [initalCheckFallbackSpeech, setInitalCheckFallbackSpeech] =
     useState(false);
+  const [appEnv, setAppEnv] = useState<AppEnv | null>(null);
+  const appEnvTimeoutRef = useRef<number | null>(null);
+  const [envVars, setEnvVars] = useState<Record<
+    string,
+    string | number | boolean
+  > | null>(null);
 
   /** This lets us map and render the same UI for each... */
   const webhooks = [
@@ -134,6 +143,7 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
       tmpStateSet: setTmpCallWebhook,
       initialCheck: initialCallWebhook,
       required: true,
+      webhookEnv: appEnv,
     },
     {
       label: "Call status",
@@ -197,6 +207,25 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
       speech_recognizer_label: recogLabel || null,
       record_all_calls: recordAllCalls ? 1 : 0,
       use_for_fallback_speech: useForFallbackSpeech ? 1 : 0,
+      env_vars: envVars
+        ? Object.keys(envVars).reduce((acc, key) => {
+            const value = envVars[key];
+            // Keep only values that:
+            // 1. Are defined in appEnv schema
+            // 2. Are not empty strings, undefined, or null
+            // 3. For booleans and numbers, keep them even if they're false or 0
+            if (
+              appEnv &&
+              appEnv[key] &&
+              (value === false ||
+                value === 0 ||
+                (value !== "" && value != null))
+            ) {
+              return { ...acc, [key]: value };
+            }
+            return acc;
+          }, {})
+        : null,
       fallback_speech_synthesis_vendor: useForFallbackSpeech
         ? fallbackSpeechSynthsisVendor || null
         : null,
@@ -513,6 +542,9 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
           application.data.fallback_speech_synthesis_voice,
         );
       }
+      if (application.data.env_vars) {
+        setEnvVars(application.data.env_vars);
+      }
     }
   }, [application]);
 
@@ -547,6 +579,33 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
     setRecogLabel(fallbackSpeechRecognizerLabel);
     setFallbackSpeechRecognizerLabel(tmp);
   };
+
+  useEffect(() => {
+    if (callWebhook && callWebhook.url) {
+      // Clear any existing timeout to prevent multiple requests
+      if (appEnvTimeoutRef.current) {
+        clearTimeout(appEnvTimeoutRef.current);
+        appEnvTimeoutRef.current = null;
+      }
+
+      appEnvTimeoutRef.current = setTimeout(() => {
+        getAppEnvSchema(callWebhook.url)
+          .then(({ json }) => {
+            setAppEnv(json);
+          })
+          .catch((error) => {
+            setMessage(error.msg);
+          });
+      }, 500);
+    }
+
+    return () => {
+      if (appEnvTimeoutRef.current) {
+        clearTimeout(appEnvTimeoutRef.current);
+        appEnvTimeoutRef.current = null;
+      }
+    };
+  }, [callWebhook]);
 
   return (
     <Section slim>
@@ -699,6 +758,135 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
                   }}
                 />
               </Checkzone>
+
+              {webhook.webhookEnv &&
+                Object.keys(webhook.webhookEnv).length > 0 && (
+                  <>
+                    {Object.keys(webhook.webhookEnv).map((key) => {
+                      const envType = webhook.webhookEnv![key].type;
+                      const isBoolean = envType === "boolean";
+                      const isNumber = envType === "number";
+                      const defaultValue = webhook.webhookEnv![key].default;
+
+                      return (
+                        <div className="inp" key={key}>
+                          {isBoolean ? (
+                            // Boolean input as checkbox
+                            <label htmlFor={`env_${key}`} className="chk">
+                              <input
+                                id={`env_${key}`}
+                                type="checkbox"
+                                name={`env_${key}`}
+                                required={webhook.webhookEnv![key].required}
+                                checked={
+                                  envVars && envVars[key] !== undefined
+                                    ? Boolean(envVars[key])
+                                    : Boolean(defaultValue)
+                                }
+                                onChange={(e) => {
+                                  setEnvVars({
+                                    ...(envVars || {}),
+                                    [key]: e.target.checked,
+                                  });
+                                }}
+                              />
+                              <Tooltip
+                                text={webhook.webhookEnv![key].description}
+                              >
+                                {key}
+                                {webhook.webhookEnv![key].required && (
+                                  <span>*</span>
+                                )}
+                              </Tooltip>
+                            </label>
+                          ) : (
+                            // Text or number input
+                            <>
+                              <label htmlFor={`env_${key}`}>
+                                <Tooltip
+                                  text={webhook.webhookEnv![key].description}
+                                >
+                                  {key}
+                                  {webhook.webhookEnv![key].required && (
+                                    <span>*</span>
+                                  )}
+                                </Tooltip>
+                              </label>
+                              {webhook.webhookEnv![key].obscure ? (
+                                <ObscureInput
+                                  name={`env_${key}`}
+                                  id={`env_${key}`}
+                                  placeholder={
+                                    webhook.webhookEnv![key].description
+                                  }
+                                  required={webhook.webhookEnv![key].required}
+                                  value={
+                                    envVars && envVars[key] !== undefined
+                                      ? String(envVars[key])
+                                      : defaultValue !== undefined
+                                        ? String(defaultValue)
+                                        : ""
+                                  }
+                                  onChange={(e) => {
+                                    // Convert to proper type based on schema
+                                    let newValue;
+                                    if (isNumber) {
+                                      newValue =
+                                        e.target.value === ""
+                                          ? ""
+                                          : Number(e.target.value);
+                                    } else {
+                                      newValue = e.target.value;
+                                    }
+
+                                    setEnvVars({
+                                      ...(envVars || {}),
+                                      [key]: newValue,
+                                    });
+                                  }}
+                                />
+                              ) : (
+                                <input
+                                  id={`env_${key}`}
+                                  type={isNumber ? "number" : "text"}
+                                  name={`env_${key}`}
+                                  placeholder={
+                                    webhook.webhookEnv![key].description
+                                  }
+                                  required={webhook.webhookEnv![key].required}
+                                  value={
+                                    envVars && envVars[key] !== undefined
+                                      ? String(envVars[key])
+                                      : defaultValue !== undefined
+                                        ? String(defaultValue)
+                                        : ""
+                                  }
+                                  onChange={(e) => {
+                                    // Convert to proper type based on schema
+                                    let newValue;
+                                    if (isNumber) {
+                                      newValue =
+                                        e.target.value === ""
+                                          ? ""
+                                          : Number(e.target.value);
+                                    } else {
+                                      newValue = e.target.value;
+                                    }
+
+                                    setEnvVars({
+                                      ...(envVars || {}),
+                                      [key]: newValue,
+                                    });
+                                  }}
+                                />
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
             </fieldset>
           );
         })}
