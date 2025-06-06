@@ -10,7 +10,8 @@ import {
 } from "src/api/types";
 import { Selector } from "src/components/forms";
 import { SelectorOption } from "src/components/forms/selector";
-import { toastError, useSelectState } from "src/store";
+import { useToast } from "src/components/toast/toast-provider";
+import { useSelectState } from "src/store";
 import { hasLength } from "src/utils";
 import {
   ELEVENLABS_LANG_EN,
@@ -44,6 +45,7 @@ import {
 type SpeechProviderSelectionProbs = {
   accountSid: string;
   serviceProviderSid: string;
+  application_speech_synthesis_voice: string | null | undefined;
   credentials: SpeechCredential[] | undefined;
   ttsVendor: [
     keyof SynthesisVendors,
@@ -67,6 +69,7 @@ type SpeechProviderSelectionProbs = {
 export const SpeechProviderSelection = ({
   accountSid,
   serviceProviderSid,
+  application_speech_synthesis_voice,
   credentials,
   ttsVendor: [synthVendor, setSynthVendor],
   ttsVendorOptions,
@@ -80,6 +83,7 @@ export const SpeechProviderSelection = ({
   sttLabelOptions,
   sttLabel: [recogLabel, setRecogLabel],
 }: SpeechProviderSelectionProbs) => {
+  const { toastError } = useToast();
   const user = useSelectState("user");
   const [
     synthesisSupportedLanguagesAndVoices,
@@ -135,7 +139,12 @@ export const SpeechProviderSelection = ({
     ttsEffectTimer.current = setTimeout(() => {
       configSynthesis();
     }, 200);
-  }, [synthVendor, synthLabel, serviceProviderSid]);
+  }, [
+    synthVendor,
+    synthLabel,
+    serviceProviderSid,
+    application_speech_synthesis_voice,
+  ]);
 
   // Get Recognizer languages and voices
   useEffect(() => {
@@ -242,9 +251,14 @@ export const SpeechProviderSelection = ({
         // Extract model
         if (json.models && json.models.length) {
           setSynthesisModelOptions(json.models);
-          if (synthVendor === VENDOR_DEEPGRAM) {
+          if (
+            synthVendor === VENDOR_DEEPGRAM &&
+            (!application_speech_synthesis_voice ||
+              !json.models.some(
+                (m) => m.value === application_speech_synthesis_voice,
+              ))
+          ) {
             setSynthVoice(json.models[0].value);
-            return;
           }
         }
 
@@ -387,6 +401,7 @@ export const SpeechProviderSelection = ({
         toastError(error.msg);
       });
   };
+
   return (
     <>
       <fieldset>

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, ButtonGroup, MS } from "@jambonz/ui-kit";
 import { Link, useNavigate } from "react-router-dom";
 
-import { toastError, toastSuccess, useSelectState } from "src/store";
+import { useSelectState } from "src/store";
 import { ClipBoard, Section, Tooltip } from "src/components";
 import {
   Selector,
@@ -10,6 +10,7 @@ import {
   Passwd,
   Message,
   AccountSelect,
+  FileUpload,
 } from "src/components/forms";
 import {
   vendors,
@@ -52,16 +53,23 @@ import type {
   AppEnv,
 } from "src/api/types";
 import { MSG_REQUIRED_FIELDS, MSG_WEBHOOK_FIELDS } from "src/constants";
-import { hasLength, isUserAccountScope, useRedirect } from "src/utils";
+import {
+  hasLength,
+  hasValue,
+  isUserAccountScope,
+  useRedirect,
+} from "src/utils";
 import { setAccountFilter, setLocation } from "src/store/localStore";
 import SpeechProviderSelection from "./speech-selection";
 import ObscureInput from "src/components/obscure-input";
+import { useToast } from "src/components/toast/toast-provider";
 
 type ApplicationFormProps = {
   application?: UseApiDataMap<Application>;
 };
 
 export const ApplicationForm = ({ application }: ApplicationFormProps) => {
+  const { toastSuccess, toastError } = useToast();
   const navigate = useNavigate();
   const user = useSelectState("user");
   const currentServiceProvider = useSelectState("currentServiceProvider");
@@ -592,6 +600,18 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
         getAppEnvSchema(callWebhook.url)
           .then(({ json }) => {
             setAppEnv(json);
+            const defaultEnvVars = Object.keys(json).reduce((acc, key) => {
+              const value = json[key];
+              if (value?.default) {
+                return { ...acc, [key]: value.default };
+              }
+              return acc;
+            }, {});
+
+            setEnvVars((prev) => ({
+              ...defaultEnvVars,
+              ...(prev || {}),
+            }));
           })
           .catch((error) => {
             setMessage(error.msg);
@@ -769,7 +789,7 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
                       const defaultValue = webhook.webhookEnv![key].default;
 
                       return (
-                        <div className="inp" key={key}>
+                        <div key={key}>
                           {isBoolean ? (
                             // Boolean input as checkbox
                             <label htmlFor={`env_${key}`} className="chk">
@@ -784,10 +804,10 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
                                     : Boolean(defaultValue)
                                 }
                                 onChange={(e) => {
-                                  setEnvVars({
-                                    ...(envVars || {}),
+                                  setEnvVars((prev) => ({
+                                    ...(prev || {}),
                                     [key]: e.target.checked,
-                                  });
+                                  }));
                                 }}
                               />
                               <Tooltip
@@ -812,22 +832,23 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
                                   )}
                                 </Tooltip>
                               </label>
-                              {webhook.webhookEnv![key].obscure ? (
-                                <ObscureInput
-                                  name={`env_${key}`}
-                                  id={`env_${key}`}
-                                  placeholder={
-                                    webhook.webhookEnv![key].description
-                                  }
-                                  required={webhook.webhookEnv![key].required}
-                                  value={
+                              {(() => {
+                                // Common props for both input types
+                                const commonProps = {
+                                  id: `env_${key}`,
+                                  name: `env_${key}`,
+                                  required: webhook.webhookEnv![key].required,
+                                  value:
                                     envVars && envVars[key] !== undefined
                                       ? String(envVars[key])
                                       : defaultValue !== undefined
                                         ? String(defaultValue)
-                                        : ""
-                                  }
-                                  onChange={(e) => {
+                                        : "",
+                                  onChange: (
+                                    e: React.ChangeEvent<
+                                      HTMLInputElement | HTMLSelectElement
+                                    >,
+                                  ) => {
                                     // Convert to proper type based on schema
                                     let newValue;
                                     if (isNumber) {
@@ -839,47 +860,94 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
                                       newValue = e.target.value;
                                     }
 
-                                    setEnvVars({
-                                      ...(envVars || {}),
+                                    setEnvVars((prev) => ({
+                                      ...(prev || {}),
                                       [key]: newValue,
-                                    });
-                                  }}
-                                />
-                              ) : (
-                                <input
-                                  id={`env_${key}`}
-                                  type={isNumber ? "number" : "text"}
-                                  name={`env_${key}`}
-                                  placeholder={
-                                    webhook.webhookEnv![key].description
-                                  }
-                                  required={webhook.webhookEnv![key].required}
-                                  value={
-                                    envVars && envVars[key] !== undefined
-                                      ? String(envVars[key])
-                                      : defaultValue !== undefined
-                                        ? String(defaultValue)
-                                        : ""
-                                  }
-                                  onChange={(e) => {
-                                    // Convert to proper type based on schema
-                                    let newValue;
-                                    if (isNumber) {
-                                      newValue =
-                                        e.target.value === ""
-                                          ? ""
-                                          : Number(e.target.value);
-                                    } else {
-                                      newValue = e.target.value;
-                                    }
+                                    }));
+                                  },
+                                };
 
-                                    setEnvVars({
-                                      ...(envVars || {}),
-                                      [key]: newValue,
-                                    });
-                                  }}
-                                />
-                              )}
+                                // Extra props only for regular input
+                                const inputSpecificProps = {
+                                  type: isNumber ? "number" : "text",
+                                };
+
+                                const isDropdown =
+                                  webhook.webhookEnv![key].type === "string" &&
+                                  (webhook.webhookEnv![key].enum?.length || 0) >
+                                    0;
+
+                                const textAreaSpecificProps = {
+                                  rows: 6,
+                                  cols: 61,
+                                };
+
+                                // Choose component type based on obscure flag
+                                const componentType = webhook.webhookEnv![key]
+                                  .obscure
+                                  ? ObscureInput
+                                  : webhook.webhookEnv![key].uiHint || "input";
+                                if (isDropdown) {
+                                  return (
+                                    <Selector
+                                      {...commonProps}
+                                      options={webhook.webhookEnv![
+                                        key
+                                      ].enum!.map((option) => ({
+                                        name: option,
+                                        value: option,
+                                      }))}
+                                    />
+                                  );
+                                }
+                                if (componentType === "filepicker") {
+                                  return (
+                                    <>
+                                      <FileUpload
+                                        id={`app_env_${key}`}
+                                        name={`app_env_${key}`}
+                                        handleFile={(file) => {
+                                          file
+                                            .text()
+                                            .then((content) => {
+                                              setEnvVars((prev) => ({
+                                                ...(prev || {}),
+                                                [key]: content,
+                                              }));
+                                            })
+                                            .catch((err) => {
+                                              toastError(
+                                                `Failed to read file: ${err.message}`,
+                                              );
+                                            });
+                                        }}
+                                        placeholder="Choose a file"
+                                        required={
+                                          webhook.webhookEnv![key].required &&
+                                          !hasValue(envVars?.[key])
+                                        }
+                                      />
+                                      {React.createElement("textarea", {
+                                        ...commonProps,
+                                        ...inputSpecificProps,
+                                        ...textAreaSpecificProps,
+                                      })}
+                                    </>
+                                  );
+                                }
+                                // Create the component with appropriate props
+                                return React.createElement(
+                                  componentType,
+                                  webhook.webhookEnv![key].obscure
+                                    ? commonProps
+                                    : {
+                                        ...commonProps,
+                                        ...inputSpecificProps,
+                                        ...(webhook.webhookEnv![key].uiHint ===
+                                          "textarea" && textAreaSpecificProps),
+                                      },
+                                );
+                              })()}
                             </>
                           )}
                         </div>
@@ -893,6 +961,9 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
         <SpeechProviderSelection
           serviceProviderSid={
             currentServiceProvider?.service_provider_sid || ""
+          }
+          application_speech_synthesis_voice={
+            application?.data?.speech_synthesis_voice
           }
           accountSid={accountSid}
           credentials={credentials}
@@ -924,6 +995,9 @@ export const ApplicationForm = ({ application }: ApplicationFormProps) => {
                 currentServiceProvider?.service_provider_sid || ""
               }
               accountSid={accountSid}
+              application_speech_synthesis_voice={
+                application?.data?.fallback_speech_synthesis_voice
+              }
               credentials={credentials}
               ttsVendor={[
                 fallbackSpeechSynthsisVendor,

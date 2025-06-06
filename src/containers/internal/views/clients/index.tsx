@@ -12,13 +12,16 @@ import {
   Spinner,
 } from "src/components";
 import { ROUTE_INTERNAL_CLIENTS } from "src/router/routes";
-import { toastError, toastSuccess, useSelectState } from "src/store";
+import { useSelectState } from "src/store";
 import { Scope } from "src/store/types";
 import { hasLength, hasValue, useFilteredResults } from "src/utils";
 import ClientsDelete from "./delete";
 import { USER_ACCOUNT } from "src/api/constants";
+import { useToast } from "src/components/toast/toast-provider";
+import { getAccountFilter } from "src/store/localStore";
 
 export const Clients = () => {
+  const { toastError, toastSuccess } = useToast();
   const user = useSelectState("user");
   const [userData] = useApiData<CurrentUserData>("Users/me");
   const [accounts] = useServiceProviderData<Account[]>("Accounts");
@@ -32,6 +35,7 @@ export const Clients = () => {
   const [client, setClient] = useState<Client | null>();
 
   const tmpFilteredClients = useMemo(() => {
+    setAccountSid(getAccountFilter() || accountSid);
     if (user?.account_sid && user?.scope === USER_ACCOUNT) {
       setAccountSid(user?.account_sid);
       return clients;

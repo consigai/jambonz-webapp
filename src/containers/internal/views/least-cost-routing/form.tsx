@@ -2,12 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, ButtonGroup, Icon, MS, MXS } from "@jambonz/ui-kit";
 import { Icons, Section } from "src/components";
-import {
-  toastError,
-  toastSuccess,
-  useDispatch,
-  useSelectState,
-} from "src/store";
+import { useDispatch, useSelectState } from "src/store";
 import { MSG_REQUIRED_FIELDS } from "src/constants";
 import { setLocation } from "src/store/localStore";
 import { AccountSelect, Message, Selector } from "src/components/forms";
@@ -35,6 +30,7 @@ import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import Container from "./container";
 import { hasValue } from "src/utils";
+import { useToast } from "src/components/toast/toast-provider";
 
 type LcrFormProps = {
   lcrDataMap?: UseApiDataMap<Lcr>;
@@ -56,6 +52,7 @@ export const LcrForm = ({ lcrDataMap, lcrRouteDataMap }: LcrFormProps) => {
     ],
   };
 
+  const { toastSuccess, toastError } = useToast();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -85,7 +82,7 @@ export const LcrForm = ({ lcrDataMap, lcrRouteDataMap }: LcrFormProps) => {
     setLocation();
     if (currentServiceProvider) {
       setApiUrl(
-        `ServiceProviders/${currentServiceProvider.service_provider_sid}/VoipCarriers`,
+        `ServiceProviders/${currentServiceProvider.service_provider_sid}/VoipCarriers${accountSid ? `?account_sid=${accountSid}` : ""}`,
       );
     }
   }, [user, currentServiceProvider, accountSid]);
@@ -95,16 +92,8 @@ export const LcrForm = ({ lcrDataMap, lcrRouteDataMap }: LcrFormProps) => {
       setAccountSid(user?.account_sid);
     }
 
-    const carriersFiltered = carriers
-      ? carriers.filter((carrier) =>
-          accountSid
-            ? carrier.account_sid === accountSid
-            : carrier.account_sid === null,
-        )
-      : [];
-
-    const ret = carriersFiltered
-      ? carriersFiltered.map((c: Carrier, i) => {
+    const ret = carriers
+      ? carriers.map((c: Carrier, i) => {
           if (i === 0) {
             setDefaultCarrier(c.voip_carrier_sid);
           }
@@ -126,11 +115,16 @@ export const LcrForm = ({ lcrDataMap, lcrRouteDataMap }: LcrFormProps) => {
     return ret;
   }, [accountSid, carriers]);
 
-  if (lcrDataMap && lcrDataMap.data && lcrDataMap.data !== previouseLcr) {
-    setLcrName(lcrDataMap.data.name || "");
-    setIsActive(lcrDataMap.data.is_active);
-    setPreviousLcr(lcrDataMap.data);
-  }
+  useEffect(() => {
+    if (lcrDataMap && lcrDataMap.data && lcrDataMap.data !== previouseLcr) {
+      setLcrName(lcrDataMap.data.name || "");
+      setIsActive(lcrDataMap.data.is_active);
+      setPreviousLcr(lcrDataMap.data);
+      if (lcrDataMap.data.account_sid) {
+        setAccountSid(lcrDataMap.data.account_sid);
+      }
+    }
+  }, [lcrDataMap?.data, previouseLcr]);
 
   useMemo(() => {
     let default_lcr_route_sid = "";

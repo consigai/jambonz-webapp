@@ -8,7 +8,7 @@ import {
   PER_PAGE_SELECTION,
   USER_ACCOUNT,
 } from "src/api/constants";
-import { toastError, useSelectState } from "src/store";
+import { useSelectState } from "src/store";
 import { hasLength, hasValue } from "src/utils";
 import {
   AccountFilter,
@@ -27,8 +27,10 @@ import {
   setLocation,
 } from "src/store/localStore";
 import AlertDetailItem from "./alert-detail-item";
+import { useToast } from "src/components/toast/toast-provider";
 
 export const Alerts = () => {
+  const { toastError } = useToast();
   const user = useSelectState("user");
   const [accounts] = useServiceProviderData<Account[]>("Accounts");
   const [accountSid, setAccountSid] = useState("");
@@ -68,10 +70,10 @@ export const Alerts = () => {
   };
 
   useMemo(() => {
+    setAccountSid(getAccountFilter() || accountSid);
+    if (!accountSid && user?.account_sid) setAccountSid(user?.account_sid);
     if (getQueryFilter()) {
       const [date] = getQueryFilter().split("/");
-      setAccountSid(getAccountFilter() || accountSid);
-      if (!accountSid && user?.account_sid) setAccountSid(user?.account_sid);
       setDateFilter(date);
     }
   }, [accountSid]);

@@ -8,7 +8,7 @@ import {
   PER_PAGE_SELECTION,
   USER_ACCOUNT,
 } from "src/api/constants";
-import { toastError, useSelectState } from "src/store";
+import { useSelectState } from "src/store";
 import {
   Section,
   AccountFilter,
@@ -28,6 +28,7 @@ import {
   getQueryFilter,
   setLocation,
 } from "src/store/localStore";
+import { useToast } from "src/components/toast/toast-provider";
 
 const directionSelection = [
   { name: "either", value: "io" },
@@ -42,6 +43,7 @@ const statusSelection = [
 ];
 
 export const RecentCalls = () => {
+  const { toastError } = useToast();
   const user = useSelectState("user");
   const [accounts] = useServiceProviderData<Account[]>("Accounts");
   const [accountSid, setAccountSid] = useState("");
@@ -87,10 +89,10 @@ export const RecentCalls = () => {
   };
 
   useMemo(() => {
+    setAccountSid(getAccountFilter() || accountSid);
+    if (!accountSid && user?.account_sid) setAccountSid(user?.account_sid);
     if (getQueryFilter()) {
       const [date, direction, status] = getQueryFilter().split("/");
-      setAccountSid(getAccountFilter() || accountSid);
-      if (!accountSid && user?.account_sid) setAccountSid(user?.account_sid);
       setDateFilter(date);
       setDirectionFilter(direction);
       setStatusFilter(status);

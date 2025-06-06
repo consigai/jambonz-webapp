@@ -557,12 +557,14 @@ export interface Client {
 
 export interface PageQuery {
   page: number;
+  page_size?: number;
   count: number;
   start?: string;
   days?: number;
 }
 
 export interface PhoneNumberQuery extends PageQuery {
+  service_provider_sid?: string;
   account_sid?: string;
   filter?: string;
 }
@@ -570,6 +572,15 @@ export interface PhoneNumberQuery extends PageQuery {
 export interface CallQuery extends PageQuery {
   direction?: string;
   answered?: string;
+}
+
+export interface ApplicationQuery extends PageQuery {
+  name?: string;
+}
+
+export interface VoipCarrierQuery extends PageQuery {
+  name?: string;
+  account_sid?: string;
 }
 
 export interface GoogleCustomVoicesQuery {
@@ -665,8 +676,9 @@ export interface Price {
   recurring: Recurring;
   stripe_price_id: null | string;
   tiers_mode: null | string;
+  tiers?: null | Tier[];
   type: null | string;
-  unit_amount: number;
+  unit_amount: null | number;
   unit_amount_decimal: null | string;
 }
 
@@ -685,9 +697,11 @@ export interface StripeCustomerId {
 }
 
 export interface Tier {
-  up_to: number;
-  flat_amount: number;
-  unit_amount: number;
+  up_to: null | number;
+  flat_amount: null | number;
+  unit_amount: null | number;
+  flat_amount_decimal: null | string;
+  unit_amount_decimal: null | string;
 }
 
 export interface ServiceData {
@@ -795,6 +809,8 @@ export interface AppEnvProperty {
   required?: boolean;
   default?: string | number | boolean;
   obscure?: boolean;
+  uiHint?: "input" | "textarea" | "filepicker";
+  enum?: string[];
 }
 
 export interface AppEnv {
