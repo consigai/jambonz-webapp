@@ -429,8 +429,10 @@ export interface SpeechCredential {
   label: null | string;
   cobalt_server_uri: null | string;
   model_id: null | string;
+  stt_model_id: null | string;
   voice_engine: null | string;
   engine_version: null | string;
+  service_version: null | string;
   model: null | string;
   options: null | string;
   deepgram_stt_uri: null | string;
@@ -438,6 +440,8 @@ export interface SpeechCredential {
   deepgram_stt_use_tls: number;
   speechmatics_stt_uri: null | string;
   playht_tts_uri: null | string;
+  resemble_tts_uri: null | string;
+  resemble_tts_use_tls: number;
 }
 
 export interface Alert {
@@ -778,6 +782,16 @@ export interface PlayHTOptions {
 export interface RimelabsOptions {
   speedAlpha: number;
   reduceLatency: boolean;
+}
+
+export interface InworldOptions {
+  audioConfig: {
+    bitRate?: number;
+    sampleRateHertz?: number;
+    pitch?: number;
+    speakingRate?: number;
+  };
+  temperature?: number;
 }
 
 export type CartesiaEmotions =

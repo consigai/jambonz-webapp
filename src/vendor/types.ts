@@ -5,6 +5,7 @@ export type Vendor =
   | "WellSaid"
   | "Nuance"
   | "Deepgram"
+  | "DeepgramRiver"
   | "IBM"
   | "Nvidia"
   | "Soniox"
@@ -17,9 +18,11 @@ export type Vendor =
   | "whisper"
   | "playht"
   | "rimelabs"
+  | "inworld"
   | "verbio"
   | "openai"
-  | "Cartesia";
+  | "Cartesia"
+  | "Resemble";
 
 export interface VendorOptions {
   name: Vendor;
@@ -96,6 +99,7 @@ export interface RecognizerVendors {
   speechmatics: Language[];
   cobalt: Language[];
   assemblyai: Language[];
+  deepgramriver: Language[];
 }
 
 export interface SynthesisVendors {
@@ -112,6 +116,7 @@ export interface SynthesisVendors {
   playht: VoiceLanguage[];
   cartesia: VoiceLanguage[];
   rimelabs: VoiceLanguage[];
+  inworld: VoiceLanguage[];
 }
 
 export interface MSRawSpeech {

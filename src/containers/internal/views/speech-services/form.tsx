@@ -52,6 +52,9 @@ import {
   VENDOR_CARTESIA,
   VENDOR_VOXIST,
   VENDOR_OPENAI,
+  VENDOR_INWORLD,
+  VENDOR_DEEPGRAM_RIVER,
+  VENDOR_RESEMBLE,
 } from "src/vendor";
 import { MSG_REQUIRED_FIELDS } from "src/constants";
 import {
@@ -80,9 +83,13 @@ import type {
 import { setAccountFilter, setLocation } from "src/store/localStore";
 import {
   ADDITIONAL_SPEECH_VENDORS,
+  ASSEMBLYAI_STT_VERSIONS,
+  DEEPGRAM_STT_ENPOINT,
+  DEFAULT_ASSEMBLYAI_STT_VERSION,
   DEFAULT_CARTESIA_OPTIONS,
   DEFAULT_ELEVENLABS_OPTIONS,
   DEFAULT_GOOGLE_CUSTOM_VOICE,
+  DEFAULT_INWORLD_OPTIONS,
   DEFAULT_PLAYHT_OPTIONS,
   DEFAULT_RIMELABS_OPTIONS,
   DEFAULT_VERBIO_MODEL,
@@ -129,6 +136,9 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
   const [ttsModelId, setTtsModelId] = useState("");
   const [sttModelId, setSttModelId] = useState("");
   const [engineVersion, setEngineVersion] = useState(DEFAULT_VERBIO_MODEL);
+  const [serviceVersion, setServiceVersion] = useState(
+    DEFAULT_ASSEMBLYAI_STT_VERSION,
+  );
   const [instanceId, setInstanceId] = useState("");
   const [initialCheckCustomTts, setInitialCheckCustomTts] = useState(false);
   const [initialCheckCustomStt, setInitialCheckCustomStt] = useState(false);
@@ -198,6 +208,12 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
   const [tmpPlayhtTtsUri, setTmpPlayhtTtsUri] = useState("");
   const [initialPlayhtOnpremCheck, setInitialPlayhtOnpremCheck] =
     useState(false);
+  const [resembleTtsUri, setResembleTtsUri] = useState("");
+  const [tmpResembleTtsUri, setTmpResembleTtsUri] = useState("");
+  const [initialResembleOnpremCheck, setInitialResembleOnpremCheck] =
+    useState(false);
+  const [resembleTtsUseTls, setResembleTtsUseTls] = useState(false);
+  const [tmpResembleTtsUseTls, setTmpResembleTtsUseTls] = useState(false);
   const handleFile = (file: File) => {
     const handleError = () => {
       setGoogleServiceKey(null);
@@ -233,6 +249,8 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
           return DEFAULT_PLAYHT_OPTIONS;
         case VENDOR_RIMELABS:
           return DEFAULT_RIMELABS_OPTIONS;
+        case VENDOR_INWORLD:
+          return DEFAULT_INWORLD_OPTIONS;
         case VENDOR_CARTESIA:
           return DEFAULT_CARTESIA_OPTIONS;
       }
@@ -249,6 +267,8 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
           return "https://docs.play.ht/reference/api-generate-tts-audio-stream";
         case VENDOR_RIMELABS:
           return "https://rimelabs.mintlify.app/api-reference/endpoint/streaming-mp3#variable-parameters";
+        case VENDOR_INWORLD:
+          return "https://docs.inworld.ai/api-reference/ttsAPI/texttospeech/synthesize-speech-stream";
         case VENDOR_CARTESIA:
           return "https://docs.cartesia.ai/api-reference/tts/bytes";
       }
@@ -260,7 +280,19 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
     switch (vendor) {
       case VENDOR_PLAYHT:
         return "Voice Engine";
+      case VENDOR_DEEPGRAM:
+        return "Model ID";
       case VENDOR_CARTESIA:
+        return "TTS Model ID";
+      default:
+        return "Model";
+    }
+  };
+
+  const getSTTModelLabelByVendor = (vendor: Lowercase<Vendor>) => {
+    switch (vendor) {
+      case VENDOR_CARTESIA:
+        return " STT Model ID";
       case VENDOR_DEEPGRAM:
         return "Model ID";
       default:
@@ -397,6 +429,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         }),
         ...(vendor === VENDOR_CARTESIA && {
           model_id: ttsModelId || null,
+          stt_model_id: sttModelId || null,
           options: options || null,
         }),
         ...(vendor === VENDOR_CUSTOM && {
@@ -419,11 +452,13 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         }),
         ...((vendor === VENDOR_ELEVENLABS ||
           vendor === VENDOR_WHISPER ||
+          vendor === VENDOR_INWORLD ||
           vendor === VENDOR_RIMELABS) && {
           model_id: ttsModelId || null,
         }),
         ...((vendor === VENDOR_ELEVENLABS ||
           vendor === VENDOR_PLAYHT ||
+          vendor === VENDOR_INWORLD ||
           vendor === VENDOR_RIMELABS) && {
           options: options || null,
         }),
@@ -447,8 +482,15 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         ...(vendor === VENDOR_VERBIO && {
           engine_version: engineVersion,
         }),
+        ...(vendor === VENDOR_ASSEMBLYAI && {
+          service_version: serviceVersion || null,
+        }),
         ...(vendor === VENDOR_PLAYHT && {
           playht_tts_uri: playhtTtsUri || null,
+        }),
+        ...(vendor === VENDOR_RESEMBLE && {
+          resemble_tts_uri: resembleTtsUri || null,
+          resemble_tts_use_tls: resembleTtsUseTls ? 1 : 0,
         }),
       };
 
@@ -496,9 +538,12 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
               vendor === VENDOR_ELEVENLABS ||
               vendor === VENDOR_PLAYHT ||
               vendor === VENDOR_RIMELABS ||
+              vendor === VENDOR_INWORLD ||
               vendor === VENDOR_WHISPER ||
               vendor === VENDOR_CARTESIA ||
-              vendor === VENDOR_OPENAI
+              vendor === VENDOR_OPENAI ||
+              vendor === VENDOR_RESEMBLE ||
+              vendor === VENDOR_DEEPGRAM_RIVER
                 ? apiKey
                 : null,
           }),
@@ -565,6 +610,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
       vendor === VENDOR_WHISPER ||
       vendor === VENDOR_PLAYHT ||
       vendor === VENDOR_RIMELABS ||
+      vendor === VENDOR_INWORLD ||
       vendor === VENDOR_CARTESIA ||
       vendor === VENDOR_OPENAI ||
       vendor === VENDOR_DEEPGRAM
@@ -758,9 +804,14 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         (vendor === VENDOR_OPENAI || vendor === VENDOR_DEEPGRAM)
       ) {
         setSttModelId(credential.data.model_id);
+      } else if (credential.data.stt_model_id) {
+        setSttModelId(credential.data.stt_model_id);
       }
       if (credential?.data?.playht_tts_uri) {
         setPlayhtTtsUri(credential.data.playht_tts_uri);
+      }
+      if (credential?.data?.resemble_tts_uri) {
+        setResembleTtsUri(credential.data.resemble_tts_uri);
       }
     }
     if (credential?.data?.options) {
@@ -776,9 +827,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         setUseCustomVoicesCheck(json.length > 0);
       });
     }
-    if (credential?.data?.deepgram_stt_uri) {
-      setDeepgramSttUri(credential.data.deepgram_stt_uri);
-    }
+    setDeepgramSttUri(credential?.data?.deepgram_stt_uri || "");
     if (credential?.data?.deepgram_tts_uri) {
       setDeepgramTtsUri(credential.data.deepgram_tts_uri);
     }
@@ -787,7 +836,12 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         credential?.data?.deepgram_stt_use_tls > 0 ? true : false,
       );
     }
-    setInitialDeepgramOnpremCheck(hasValue(credential?.data?.deepgram_stt_uri));
+    setInitialDeepgramOnpremCheck(
+      hasValue(credential?.data?.deepgram_stt_uri) &&
+        !DEEPGRAM_STT_ENPOINT.map((e) => e.value).includes(
+          credential?.data?.deepgram_stt_uri,
+        ),
+    );
 
     if (credential?.data?.user_id) {
       setUserId(credential.data.user_id);
@@ -817,6 +871,9 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
     if (credential?.data?.engine_version) {
       setEngineVersion(credential.data.engine_version);
     }
+    if (credential?.data?.service_version) {
+      setServiceVersion(credential.data.service_version);
+    }
 
     if (credential?.data?.speechmatics_stt_uri) {
       setInitialSpeechMaticsOnpremCheck(
@@ -825,6 +882,15 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
       setSpeechmaticsEndpoint(credential.data.speechmatics_stt_uri);
     }
     setInitialPlayhtOnpremCheck(hasValue(credential?.data?.playht_tts_uri));
+    setInitialResembleOnpremCheck(hasValue(credential?.data?.resemble_tts_uri));
+    if (credential?.data?.resemble_tts_use_tls) {
+      setResembleTtsUseTls(
+        credential?.data?.resemble_tts_use_tls > 0 ? true : false,
+      );
+      setTmpResembleTtsUseTls(
+        credential?.data?.resemble_tts_use_tls > 0 ? true : false,
+      );
+    }
   }, [credential]);
 
   const updateCustomVoices = (
@@ -943,6 +1009,7 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
               vendor !== VENDOR_COBALT &&
               vendor !== VENDOR_SONIOX &&
               vendor !== VENDOR_SPEECHMATICS &&
+              vendor !== VENDOR_DEEPGRAM_RIVER &&
               vendor !== VENDOR_OPENAI &&
               vendor != VENDOR_CUSTOM && (
                 <label htmlFor="use_for_tts" className="chk">
@@ -961,7 +1028,8 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
               vendor !== VENDOR_WHISPER &&
               vendor !== VENDOR_PLAYHT &&
               vendor !== VENDOR_RIMELABS &&
-              vendor !== VENDOR_CARTESIA &&
+              vendor !== VENDOR_INWORLD &&
+              vendor !== VENDOR_RESEMBLE &&
               vendor !== VENDOR_ELEVENLABS && (
                 <label htmlFor="use_for_stt" className="chk">
                   <input
@@ -1497,6 +1565,22 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
             </fieldset>
           </>
         )}
+        {vendor === VENDOR_ASSEMBLYAI && (
+          <fieldset>
+            <label htmlFor={`${vendor}_tts_model_id`}>
+              Service version<span>*</span>
+            </label>
+            <Selector
+              id={"assemblyai_service_version"}
+              name={"assemblyai_service_version"}
+              value={serviceVersion}
+              options={ASSEMBLYAI_STT_VERSIONS}
+              onChange={(e) => {
+                setServiceVersion(e.target.value);
+              }}
+            />
+          </fieldset>
+        )}
         {vendor === VENDOR_AWS && (
           <fieldset>
             <label htmlFor="vendor">
@@ -1685,15 +1769,69 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
           </fieldset>
         )}
 
+        {vendor === VENDOR_RESEMBLE && (
+          <fieldset>
+            <Checkzone
+              disabled={hasValue(credential)}
+              hidden
+              name="use_on-prem_resemble_container"
+              label="Use on-prem Resemble container"
+              initialCheck={initialResembleOnpremCheck}
+              handleChecked={(e) => {
+                setInitialResembleOnpremCheck(e.target.checked);
+                if (e.target.checked) {
+                  if (tmpResembleTtsUri) {
+                    setResembleTtsUri(tmpResembleTtsUri);
+                  }
+                  if (tmpResembleTtsUseTls) {
+                    setResembleTtsUseTls(tmpResembleTtsUseTls);
+                  }
+                } else {
+                  setTmpResembleTtsUri(resembleTtsUri);
+                  setResembleTtsUri("");
+                  setTmpResembleTtsUseTls(resembleTtsUseTls);
+                  setResembleTtsUseTls(false);
+                }
+              }}
+            >
+              <label htmlFor="resemble_uri_for_tts">
+                TTS Container URI<span>*</span>
+              </label>
+              <input
+                id="resemble_uri_for_tts"
+                required
+                type="text"
+                name="resemble_uri_for_tts"
+                placeholder=""
+                value={resembleTtsUri}
+                onChange={(e) => setResembleTtsUri(e.target.value)}
+              />
+              <label htmlFor="resemble_stt_use_tls" className="chk">
+                <input
+                  id="resemble_stt_use_tls"
+                  name="resemble_stt_use_tls"
+                  type="checkbox"
+                  onChange={(e) => setResembleTtsUseTls(e.target.checked)}
+                  defaultChecked={resembleTtsUseTls}
+                />
+                <div>Use TLS</div>
+              </label>
+            </Checkzone>
+          </fieldset>
+        )}
+
         {(vendor === VENDOR_WELLSAID ||
           vendor === VENDOR_ASSEMBLYAI ||
           vendor === VENDOR_VOXIST ||
           vendor == VENDOR_ELEVENLABS ||
           vendor === VENDOR_WHISPER ||
           vendor === VENDOR_RIMELABS ||
+          vendor === VENDOR_INWORLD ||
           vendor === VENDOR_SONIOX ||
           vendor === VENDOR_CARTESIA ||
           vendor === VENDOR_OPENAI ||
+          vendor === VENDOR_DEEPGRAM_RIVER ||
+          vendor === VENDOR_RESEMBLE ||
           vendor === VENDOR_SPEECHMATICS) && (
           <fieldset>
             <label htmlFor={`${vendor}_apikey`}>
@@ -1710,11 +1848,12 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
             />
           </fieldset>
         )}
-        {(vendor == VENDOR_ELEVENLABS ||
-          vendor == VENDOR_WHISPER ||
-          vendor === VENDOR_CARTESIA ||
+        {(vendor === VENDOR_ELEVENLABS ||
+          vendor === VENDOR_WHISPER ||
           vendor === VENDOR_PLAYHT ||
-          vendor == VENDOR_RIMELABS) &&
+          vendor === VENDOR_RIMELABS ||
+          vendor === VENDOR_INWORLD ||
+          (ttsCheck && vendor === VENDOR_CARTESIA)) &&
           ttsModels.length > 0 && (
             <fieldset>
               <label htmlFor={`${vendor}_tts_model_id`}>
@@ -1731,11 +1870,13 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
               />
             </fieldset>
           )}
-        {(vendor == VENDOR_OPENAI || vendor === VENDOR_DEEPGRAM) &&
+        {(vendor == VENDOR_OPENAI ||
+          vendor === VENDOR_DEEPGRAM ||
+          (sttCheck && vendor === VENDOR_CARTESIA)) &&
           sttModels.length > 0 && (
             <fieldset>
               <label htmlFor={`${vendor}_stt_model_id`}>
-                {getModelLabelByVendor(vendor)}
+                {getSTTModelLabelByVendor(vendor)}
               </label>
               <Selector
                 id={"stt_model_id"}
@@ -1751,7 +1892,8 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
         {(vendor === VENDOR_ELEVENLABS ||
           vendor === VENDOR_PLAYHT ||
           vendor === VENDOR_CARTESIA ||
-          vendor === VENDOR_RIMELABS) && (
+          vendor === VENDOR_RIMELABS ||
+          vendor === VENDOR_INWORLD) && (
           <fieldset>
             <Checkzone
               hidden
@@ -1971,6 +2113,19 @@ export const SpeechServiceForm = ({ credential }: SpeechServiceFormProps) => {
                 value={credential ? getObscuredSecret(apiKey) : apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 disabled={credential ? true : false}
+              />
+              <label htmlFor={`${vendor}_deepgram_stt_enpoint`}>
+                Deepgram STT Endpoint<span>*</span>
+              </label>
+              <Selector
+                id={"deepgram_stt_enpoint"}
+                name={"deepgram_stt_enpoint"}
+                value={deepgramSttUri}
+                options={DEEPGRAM_STT_ENPOINT}
+                onChange={(e) => {
+                  setDeepgramSttUri(e.target.value);
+                  setDeepgramSttUseTls(hasValue(e.target.value));
+                }}
               />
             </Checkzone>
             <Checkzone
