@@ -1,4 +1,10 @@
-import type { Language, Model, Vendor, VoiceLanguage } from "src/vendor/types";
+import type {
+  JambonzResourceOptions,
+  Language,
+  Model,
+  Vendor,
+  VoiceLanguage,
+} from "src/vendor/types";
 
 /** Simple types */
 
@@ -442,6 +448,7 @@ export interface SpeechCredential {
   playht_tts_uri: null | string;
   resemble_tts_uri: null | string;
   resemble_tts_use_tls: number;
+  api_uri: null | string;
 }
 
 export interface Alert {
@@ -825,6 +832,8 @@ export interface AppEnvProperty {
   obscure?: boolean;
   uiHint?: "input" | "textarea" | "filepicker";
   enum?: string[];
+  jambonzResource?: "carriers";
+  jambonzResourceOptions?: JambonzResourceOptions[];
 }
 
 export interface AppEnv {

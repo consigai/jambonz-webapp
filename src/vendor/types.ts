@@ -5,7 +5,7 @@ export type Vendor =
   | "WellSaid"
   | "Nuance"
   | "Deepgram"
-  | "DeepgramRiver"
+  | "DeepgramFlux"
   | "IBM"
   | "Nvidia"
   | "Soniox"
@@ -30,6 +30,11 @@ export interface VendorOptions {
 }
 
 export interface LabelOptions {
+  name: string;
+  value: string;
+}
+
+export interface JambonzResourceOptions {
   name: string;
   value: string;
 }
@@ -99,7 +104,7 @@ export interface RecognizerVendors {
   speechmatics: Language[];
   cobalt: Language[];
   assemblyai: Language[];
-  deepgramriver: Language[];
+  deepgramflux: Language[];
 }
 
 export interface SynthesisVendors {
