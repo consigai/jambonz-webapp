@@ -1,4 +1,10 @@
-import type { Language, Model, Vendor, VoiceLanguage } from "src/vendor/types";
+import type {
+  JambonzResourceOptions,
+  Language,
+  Model,
+  Vendor,
+  VoiceLanguage,
+} from "src/vendor/types";
 
 /** Simple types */
 
@@ -413,6 +419,7 @@ export interface SpeechCredential {
   custom_stt_endpoint: null | string;
   client_id: null | string;
   client_secret: null | string;
+  client_key: null | string;
   secret: null | string;
   nuance_tts_uri: null | string;
   nuance_stt_uri: null | string;
@@ -429,8 +436,10 @@ export interface SpeechCredential {
   label: null | string;
   cobalt_server_uri: null | string;
   model_id: null | string;
+  stt_model_id: null | string;
   voice_engine: null | string;
   engine_version: null | string;
+  service_version: null | string;
   model: null | string;
   options: null | string;
   deepgram_stt_uri: null | string;
@@ -438,6 +447,10 @@ export interface SpeechCredential {
   deepgram_stt_use_tls: number;
   speechmatics_stt_uri: null | string;
   playht_tts_uri: null | string;
+  resemble_tts_uri: null | string;
+  resemble_tts_use_tls: number;
+  api_uri: null | string;
+  houndify_server_uri: null | string;
 }
 
 export interface Alert {
@@ -456,6 +469,8 @@ export interface CarrierRegisterStatus {
 }
 
 export type DtmfType = "rfc2833" | "tones" | "info";
+
+export type TrunkType = "static_ip" | "auth" | "reg";
 
 export interface Carrier {
   voip_carrier_sid: string;
@@ -485,6 +500,7 @@ export interface Carrier {
   register_status: CarrierRegisterStatus;
   dtmf_type: DtmfType;
   outbound_sip_proxy: string | null;
+  trunk_type: TrunkType;
 }
 
 export interface PredefinedCarrier extends Carrier {
@@ -780,6 +796,16 @@ export interface RimelabsOptions {
   reduceLatency: boolean;
 }
 
+export interface InworldOptions {
+  audioConfig: {
+    bitRate?: number;
+    sampleRateHertz?: number;
+    pitch?: number;
+    speakingRate?: number;
+  };
+  temperature?: number;
+}
+
 export type CartesiaEmotions =
   | "anger:lowest"
   | "anger:low"
@@ -811,6 +837,8 @@ export interface AppEnvProperty {
   obscure?: boolean;
   uiHint?: "input" | "textarea" | "filepicker";
   enum?: string[];
+  jambonzResource?: "carriers";
+  jambonzResourceOptions?: JambonzResourceOptions[];
 }
 
 export interface AppEnv {

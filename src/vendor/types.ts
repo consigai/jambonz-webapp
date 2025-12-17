@@ -5,6 +5,7 @@ export type Vendor =
   | "WellSaid"
   | "Nuance"
   | "Deepgram"
+  | "DeepgramFlux"
   | "IBM"
   | "Nvidia"
   | "Soniox"
@@ -17,9 +18,13 @@ export type Vendor =
   | "whisper"
   | "playht"
   | "rimelabs"
+  | "inworld"
   | "verbio"
   | "openai"
-  | "Cartesia";
+  | "Cartesia"
+  | "Resemble"
+  | "Houndify"
+  | "gladia";
 
 export interface VendorOptions {
   name: Vendor;
@@ -27,6 +32,11 @@ export interface VendorOptions {
 }
 
 export interface LabelOptions {
+  name: string;
+  value: string;
+}
+
+export interface JambonzResourceOptions {
   name: string;
   value: string;
 }
@@ -76,6 +86,7 @@ export interface RegionVendors {
   microsoft: Region[];
   ibm: Region[];
   speechmatics: Region[];
+  gladia: Region[];
 }
 
 export interface TtsModels {
@@ -96,6 +107,7 @@ export interface RecognizerVendors {
   speechmatics: Language[];
   cobalt: Language[];
   assemblyai: Language[];
+  deepgramflux: Language[];
 }
 
 export interface SynthesisVendors {
@@ -112,6 +124,7 @@ export interface SynthesisVendors {
   playht: VoiceLanguage[];
   cartesia: VoiceLanguage[];
   rimelabs: VoiceLanguage[];
+  inworld: VoiceLanguage[];
 }
 
 export interface MSRawSpeech {

@@ -3,6 +3,7 @@ import type {
   Currency,
   ElevenLabsOptions,
   GoogleCustomVoice,
+  InworldOptions,
   LimitField,
   LimitUnitOption,
   PasswordSettings,
@@ -130,7 +131,7 @@ export const DEFAULT_WEBHOOK: WebHook = {
 };
 
 /** Default SIP/SMPP Gateways  */
-export const DEFAULT_SIP_GATEWAY: SipGateway = {
+export const DEFAULT_SIP_INBOUND_GATEWAY: SipGateway = {
   voip_carrier_sid: "",
   ipv4: "",
   port: 5060,
@@ -244,6 +245,14 @@ export const VERBIO_STT_MODELS = [
 
 export const DEFAULT_VERBIO_MODEL = "V1";
 
+// ASSEMBLYAI
+export const ASSEMBLYAI_STT_VERSIONS = [
+  { name: "V2", value: "v2" },
+  { name: "V3", value: "v3" },
+];
+
+export const DEFAULT_ASSEMBLYAI_STT_VERSION = "v2";
+
 export const ADDITIONAL_SPEECH_VENDORS: Lowercase<Vendor>[] = ["speechmatics"];
 
 // Google Custom Voice reported usage options
@@ -275,6 +284,14 @@ export const DEFAULT_ELEVENLABS_OPTIONS: Partial<ElevenLabsOptions> = {
 export const DEFAULT_RIMELABS_OPTIONS: Partial<RimelabsOptions> = {
   speedAlpha: 1.0,
   reduceLatency: true,
+};
+
+export const DEFAULT_INWORLD_OPTIONS: Partial<InworldOptions> = {
+  audioConfig: {
+    pitch: 0.0,
+    speakingRate: 1.0,
+  },
+  temperature: 0.8,
 };
 
 // PlayHT options
@@ -329,6 +346,12 @@ export const USER_SCOPE_SELECTION: SelectorOptions[] = [
 export const DTMF_TYPE_SELECTION: SelectorOptions[] = [
   { name: "RFC 2833", value: "rfc2833" },
   { name: "Tones", value: "tones" },
+];
+
+export const TRUNK_TYPE_SELECTION: SelectorOptions[] = [
+  { name: "IP Trunk", value: "static_ip" },
+  { name: "Auth Trunk", value: "auth" },
+  { name: "Registration Trunk", value: "reg" },
 ];
 
 /** Available webhook methods */
@@ -400,6 +423,11 @@ export const PlanType = {
 export const CurrencySymbol: Currency = {
   usd: "$",
 };
+
+export const DEEPGRAM_STT_ENPOINT = [
+  { name: "US (Default)", value: "" },
+  { name: "EU-hosted", value: "api.eu.deepgram.com" },
+];
 
 /** User scope values values */
 export const USER_ADMIN = "admin";

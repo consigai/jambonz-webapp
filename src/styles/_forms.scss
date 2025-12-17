@@ -7,12 +7,12 @@ input[type="text"],
 input[type="email"],
 input[type="number"],
 input[type="password"] {
-  @include ui-mixins.m();
   padding: ui-vars.$px01 ui-vars.$px02;
   border-radius: ui-vars.$px01;
   border: 2px solid ui-vars.$grey;
   background-color: ui-vars.$white;
   color: inherit;
+  @include ui-mixins.m();
 
   &:focus {
     border-color: ui-vars.$dark;
@@ -110,11 +110,11 @@ fieldset {
   }
 
   label {
-    @include ui-mixins.m();
-    @include ui-mixins.font-medium();
     display: flex;
     align-items: center;
     flex-wrap: wrap;
+    @include ui-mixins.font-medium();
+    @include ui-mixins.m();
 
     span {
       color: ui-vars.$jambonz;
@@ -218,7 +218,8 @@ fieldset {
   }
 }
 
-.gateway {
+.gateway,
+.gateway-inbound {
   padding: ui-vars.$px02;
   border-radius: ui-vars.$px01;
   border: 2px solid ui-vars.$grey;
@@ -279,6 +280,18 @@ fieldset {
         transform: none;
         position: relative;
         margin-top: ui-vars.$px02;
+      }
+    }
+  }
+}
+
+.gateway-inbound {
+  > div {
+    &:nth-child(1) {
+      grid-template-columns: [col] calc(70% - #{ui-vars.$px02 * 2}) [col] 30%;
+
+      @include mixins.small() {
+        grid-template-columns: [col] 100%;
       }
     }
   }

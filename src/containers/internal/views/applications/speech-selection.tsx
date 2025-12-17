@@ -35,6 +35,10 @@ import {
   VENDOR_VOXIST,
   VENDOR_RIMELABS,
   VENDOR_OPENAI,
+  VENDOR_INWORLD,
+  VENDOR_DEEPGRAM_FLUX,
+  VENDOR_RESEMBLE,
+  VENDOR_HOUNDIFY,
 } from "src/vendor";
 import {
   LabelOptions,
@@ -312,6 +316,15 @@ export const SpeechProviderSelection = ({
             updateTtsVoice(newLang!.value, newLang!.voices[0].value);
             return;
           }
+          if (synthVendor === VENDOR_INWORLD) {
+            let newLang = json.tts.find((lang) => lang.value === "en");
+            // If the new language doesn't map then default to the first one
+            if (!newLang) {
+              newLang = json.tts[0];
+            }
+            updateTtsVoice(newLang!.value, newLang!.voices[0].value);
+            return;
+          }
           /** Google and AWS have different language lists */
           /** If the new language doesn't map then default to "en-US" */
           let newLang = json.tts.find((lang) => lang.value === synthLang);
@@ -358,6 +371,9 @@ export const SpeechProviderSelection = ({
   };
 
   const configRecognizer = () => {
+    if (recogVendor === VENDOR_DEEPGRAM_FLUX) {
+      return;
+    }
     getSpeechSupportedLanguagesAndVoices(
       serviceProviderSid,
       recogVendor,
@@ -418,6 +434,8 @@ export const SpeechProviderSelection = ({
               vendor.value !== VENDOR_SPEECHMATICS &&
               vendor.value !== VENDOR_CUSTOM &&
               vendor.value !== VENDOR_OPENAI &&
+              vendor.value !== VENDOR_DEEPGRAM_FLUX &&
+              vendor.value !== VENDOR_HOUNDIFY &&
               vendor.value !== VENDOR_COBALT,
           )}
           onChange={(e) => {
@@ -572,6 +590,7 @@ export const SpeechProviderSelection = ({
               vendor.value != VENDOR_WELLSAID &&
               vendor.value != VENDOR_ELEVENLABS &&
               vendor.value != VENDOR_WHISPER &&
+              vendor.value !== VENDOR_RESEMBLE &&
               vendor.value !== VENDOR_CUSTOM,
           )}
           onChange={(e) => {
@@ -599,6 +618,7 @@ export const SpeechProviderSelection = ({
         )}
         {recogVendor &&
           !recogVendor.toString().startsWith(VENDOR_CUSTOM) &&
+          recogVendor !== VENDOR_DEEPGRAM_FLUX &&
           recogLang && (
             <>
               <label htmlFor="recognizer_lang">Language</label>

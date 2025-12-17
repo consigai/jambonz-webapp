@@ -12,6 +12,7 @@ export const VENDOR_MICROSOFT = "microsoft";
 export const VENDOR_WELLSAID = "wellsaid";
 export const VENDOR_NUANCE = "nuance";
 export const VENDOR_DEEPGRAM = "deepgram";
+export const VENDOR_DEEPGRAM_FLUX = "deepgramflux";
 export const VENDOR_IBM = "ibm";
 export const VENDOR_NVIDIA = "nvidia";
 export const VENDOR_SONIOX = "soniox";
@@ -24,9 +25,13 @@ export const VENDOR_VOXIST = "voxist";
 export const VENDOR_WHISPER = "whisper";
 export const VENDOR_PLAYHT = "playht";
 export const VENDOR_RIMELABS = "rimelabs";
+export const VENDOR_INWORLD = "inworld";
 export const VENDOR_VERBIO = "verbio";
 export const VENDOR_CARTESIA = "cartesia";
 export const VENDOR_OPENAI = "openai";
+export const VENDOR_RESEMBLE = "resemble";
+export const VENDOR_HOUNDIFY = "houndify";
+export const VENDOR_GLADIA = "gladia";
 
 export const vendors: VendorOptions[] = [
   {
@@ -40,6 +45,10 @@ export const vendors: VendorOptions[] = [
   {
     name: "Deepgram",
     value: VENDOR_DEEPGRAM,
+  },
+  {
+    name: "Deepgram Flux",
+    value: VENDOR_DEEPGRAM_FLUX,
   },
   {
     name: "IBM",
@@ -102,6 +111,10 @@ export const vendors: VendorOptions[] = [
     value: VENDOR_RIMELABS,
   },
   {
+    name: "Inworld",
+    value: VENDOR_INWORLD,
+  },
+  {
     name: "Verbio",
     value: VENDOR_VERBIO,
   },
@@ -112,6 +125,18 @@ export const vendors: VendorOptions[] = [
   {
     name: "OpenAI",
     value: VENDOR_OPENAI,
+  },
+  {
+    name: "Resemble",
+    value: VENDOR_RESEMBLE,
+  },
+  {
+    name: "SoundHound",
+    value: VENDOR_HOUNDIFY,
+  },
+  {
+    name: "Gladia",
+    value: VENDOR_GLADIA,
   },
 ].sort((a, b) => a.name.localeCompare(b.name)) as VendorOptions[];
 
@@ -145,12 +170,14 @@ export const useRegionVendors = () => {
       import("./regions/ms-azure-regions"),
       import("./regions/ibm-regions"),
       import("./regions/speechmatics-regions"),
+      import("./regions/gladia-regions"),
     ]).then(
       ([
         { default: awsRegions },
         { default: msRegions },
         { default: ibmRegions },
         { default: speechmaticsRegions },
+        { default: gladiaRegions },
       ]) => {
         if (!ignore) {
           setRegions({
@@ -158,6 +185,7 @@ export const useRegionVendors = () => {
             microsoft: msRegions,
             ibm: ibmRegions,
             speechmatics: speechmaticsRegions,
+            gladia: gladiaRegions,
           });
         }
       },
